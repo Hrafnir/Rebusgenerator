@@ -11,6 +11,7 @@
   let lastGateKey = '';
   let lastUploadReceipt = null;
   let activeStudentTab = 'task';
+  let autoMapTaskId = '';
   let locationWatchId = null;
   let backgroundLocationWatchId = null;
   let alertAudioContext = null;
@@ -106,6 +107,7 @@
     }
 
     const sortedTasks = [...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+    syncTaskRouteTab(sortedTasks);
     $('task-list').innerHTML = renderCurrentTask(sortedTasks);
     renderStudentMapState(sortedTasks);
     switchStudentTab(activeStudentTab);
@@ -276,6 +278,37 @@
     }
   }
 
+  function syncTaskRouteTab(tasks) {
+    if (previewMode || !tasks.length) return;
+    const progressByTaskId = new Map((session.progress || []).map(item => [item.taskId, item]));
+    const currentIndex = tasks.findIndex(task => !isTaskComplete(progressByTaskId.get(task.id)));
+    if (currentIndex === -1) {
+      autoMapTaskId = '';
+      return;
+    }
+
+    const task = tasks[currentIndex];
+    const locationState = taskLocationState(task);
+    if (!locationState.location) {
+      autoMapTaskId = '';
+      return;
+    }
+
+    if (!locationState.inside) {
+      const isNewAutoTask = autoMapTaskId !== task.id;
+      if (activeStudentTab === 'task' || activeStudentTab === 'map' || isNewAutoTask) {
+        activeStudentTab = 'map';
+        autoMapTaskId = task.id;
+      }
+      return;
+    }
+
+    if (autoMapTaskId === task.id && activeStudentTab === 'map') {
+      activeStudentTab = 'task';
+    }
+    autoMapTaskId = '';
+  }
+
   function renderCurrentTask(tasks) {
     if (!tasks.length) {
       return '<p class="muted">Læreren har ikke lagt inn oppgaver ennå.</p>';
@@ -317,7 +350,7 @@
         ${locationState.location ? '<button class="ghost compact map-toggle-button" type="button" data-student-tab="map">Åpne kart</button>' : ''}
         ${locationState.location && isFindTask ? renderFindDestinationNotice(task, locationState) : ''}
         ${!previewMode && locationState.location && !locationState.inside && !isFindTask ? `
-          <p class="notice">Oppgaven åpnes når dere er innenfor geofence. ${locationState.distanceText}</p>
+          <p class="notice">Kartet viser veien til posten. Oppgaven åpnes her når dere er innenfor geofence. ${locationState.distanceText}</p>
         ` : renderTask(task, tasks.length, progress)}
       </section>
     `;
