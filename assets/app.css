@@ -585,6 +585,14 @@ button.compact {
   font-weight: 700;
 }
 
+.asset-preview-image {
+  width: min(220px, 40vw);
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
 .asset-link span {
   color: var(--muted);
   font-size: 0.88rem;

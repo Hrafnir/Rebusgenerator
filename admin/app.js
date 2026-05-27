@@ -1623,6 +1623,7 @@
           <span class="toolbar">
             <button class="ghost compact" type="button" data-move-task="${escapeHtml(task.id)}" data-direction="up" ${index === 0 ? 'disabled' : ''}>Opp</button>
             <button class="ghost compact" type="button" data-move-task="${escapeHtml(task.id)}" data-direction="down" ${index === orderedTasks.length - 1 ? 'disabled' : ''}>Ned</button>
+            <button class="ghost compact" type="button" data-preview-task="${escapeHtml(task.id)}">Se som elev</button>
             <button class="ghost compact" type="button" data-edit-task="${escapeHtml(task.id)}">Rediger</button>
           </span>
         </div>
@@ -1640,9 +1641,18 @@
     document.querySelectorAll('[data-edit-task]').forEach(button => {
       button.addEventListener('click', () => openTaskEditor(button.dataset.editTask));
     });
+    document.querySelectorAll('[data-preview-task]').forEach(button => {
+      button.addEventListener('click', () => openStudentPreview(button.dataset.previewTask));
+    });
     document.querySelectorAll('[data-move-task]').forEach(button => {
       button.addEventListener('click', () => moveTask(button.dataset.moveTask, button.dataset.direction).catch(error => alert(error.message)));
     });
+  }
+
+  function openStudentPreview(taskId) {
+    if (!state.selectedRebus || !taskId) return;
+    const url = `../student/?previewTask=${encodeURIComponent(taskId)}&rebusId=${encodeURIComponent(state.selectedRebus.id)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   function renderStopSelect() {

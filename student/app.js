@@ -17,6 +17,7 @@
   let wakeLockSentinel = null;
   let messagePollId = null;
   let movementTrack = null;
+  let previewMode = false;
   let organizations = [];
   const geofenceAlertedTaskIds = new Set();
   const pendingUploads = new Map();
@@ -68,6 +69,7 @@
   }
 
   async function restoreSession() {
+    if (previewMode) return;
     const token = localStorage.getItem('studentSessionToken');
     if (!token) return;
     if (mode === 'supabase') {
@@ -93,9 +95,15 @@
     $('app-panel').hidden = false;
     $('rebus-title').textContent = session.rebus.title;
     $('student-name').textContent = `${session.student.displayName}${session.student.teamName ? ` · ${session.student.teamName}` : ''}`;
-    renderStudentScore();
-    renderStudentMessages();
-    renderStudentLog();
+    if (previewMode) {
+      $('student-score-panel').innerHTML = '<p class="notice">Forhåndsvisning for lærer. GPS, poeng og innleveringer lagres ikke.</p>';
+      $('student-messages').innerHTML = '<p class="muted">Chat er skjult i forhåndsvisning.</p>';
+      $('student-log').innerHTML = '<p class="muted">Logg fylles ikke i forhåndsvisning.</p>';
+    } else {
+      renderStudentScore();
+      renderStudentMessages();
+      renderStudentLog();
+    }
 
     const sortedTasks = [...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
     $('task-list').innerHTML = renderCurrentTask(sortedTasks);
@@ -288,8 +296,8 @@
     const isFindTask = isFindDestinationTask(task);
     return `
       <div class="student-topline">
-        <p class="muted">${progressByTaskId.size} av ${tasks.length} oppgaver levert.</p>
-        <button class="ghost compact" type="button" data-logout>Logg ut</button>
+        <p class="muted">${previewMode ? 'Forhåndsvisning av én oppgave' : `${progressByTaskId.size} av ${tasks.length} oppgaver levert.`}</p>
+        ${previewMode ? '<button class="ghost compact" type="button" onclick="window.close()">Lukk</button>' : '<button class="ghost compact" type="button" data-logout>Logg ut</button>'}
       </div>
       ${renderUploadReceipt()}
       <section class="task-group">
@@ -297,7 +305,7 @@
         <h3>${escapeHtml(locationTitle(task))}</h3>
         ${locationState.location && !isFindTask ? `<p class="muted">Gå til markøren på kartet. Radius: ${locationState.radius} meter.</p>` : ''}
         ${locationState.location && isFindTask ? renderFindDestinationNotice(task, locationState) : ''}
-        ${locationState.location && !locationState.inside && !isFindTask ? `
+        ${!previewMode && locationState.location && !locationState.inside && !isFindTask ? `
           <p class="notice">Oppgaven åpnes når dere er innenfor geofence. ${locationState.distanceText}</p>
         ` : renderTask(task, tasks.length, progress)}
       </section>
@@ -319,7 +327,7 @@
         ${task.location && !isFindDestinationTask(task) ? `<p class="muted">Presis lokasjon: ${escapeHtml(task.location.label || '')} ${formatCoordinate(task.location.lat)}, ${formatCoordinate(task.location.lng)}</p>` : ''}
         ${renderAssets(task.assets || [])}
         ${renderHints(task.hints || [])}
-        ${progress && progress.correct !== false ? renderProgressDetails(progress) : `${progress ? renderRetryDetails(progress) : ''}${taskForm(task)}${skipTaskBox(task)}`}
+        ${progress && progress.correct !== false ? renderProgressDetails(progress) : `${progress ? renderRetryDetails(progress) : ''}${taskForm(task)}${previewMode ? '' : skipTaskBox(task)}`}
       </article>
     `;
   }
@@ -431,6 +439,7 @@
       <div class="asset-list">
         ${assets.map(asset => `
           <a class="asset-link" href="${escapeAttribute(asset.url)}" target="_blank" rel="noreferrer">
+            ${asset.type === 'image' ? `<img class="asset-preview-image" src="${escapeAttribute(asset.url)}" alt="${escapeAttributeValue(asset.title || 'Bilde i oppgaven')}">` : ''}
             ${escapeHtml(asset.title || mediaTypeLabel(asset.type))}
             <span>${mediaTypeLabel(asset.type)}</span>
           </a>
@@ -490,7 +499,7 @@
     const task = (session.tasks || []).find(item => item.id === taskId);
     const status = document.getElementById(`task-status-${taskId}`);
     const locationState = taskLocationState(task);
-    if (locationState.location && !locationState.inside) {
+    if (!previewMode && locationState.location && !locationState.inside) {
       if (status) status.textContent = 'Dere er ikke innenfor geofence ennå.';
       return;
     }
@@ -509,6 +518,11 @@
         if (status) status.textContent = 'Skriv inn et svar først.';
         return;
       }
+    }
+
+    if (previewMode) {
+      if (status) status.textContent = 'Forhåndsvisning: dette svaret ville blitt levert.';
+      return;
     }
 
     if (status) status.textContent = 'Leverer...';
@@ -542,6 +556,10 @@
     const file = fileInput && fileInput.files ? fileInput.files[0] : null;
     if (!file) {
       if (status) status.textContent = 'Velg en fil først.';
+      return;
+    }
+    if (previewMode) {
+      if (status) status.textContent = `Forhåndsvisning: ${file.name} ville blitt lastet opp og levert.`;
       return;
     }
 
@@ -1388,9 +1406,15 @@
   async function boot() {
     config = await loadConfig();
     mode = config.supabaseUrl && config.supabaseAnonKey ? 'supabase' : 'local';
+    const params = new URLSearchParams(window.location.search);
+    previewMode = params.has('previewTask');
     if (mode === 'supabase') {
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
       supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+      if (previewMode) {
+        await loadPreviewSession(params.get('rebusId'), params.get('previewTask'));
+        return;
+      }
       $('username').value = '';
       $('password').value = '';
       $('username').placeholder = 'gruppe-1';
@@ -1403,7 +1427,106 @@
     document.addEventListener('visibilitychange', () => {
       if (session && document.visibilityState === 'visible') requestWakeLock().catch(() => {});
     });
-    restoreSession().catch(() => {});
+    if (!previewMode) restoreSession().catch(() => {});
+  }
+
+  async function loadPreviewSession(rebusId, taskId) {
+    if (!rebusId || !taskId) throw new Error('Forhåndsvisningen mangler rebus eller oppgave.');
+    $('login-panel').hidden = true;
+    $('app-panel').hidden = false;
+    $('location-status').textContent = 'Forhåndsvisning: posisjon sendes ikke.';
+    document.title = 'Forhåndsvisning - Rebus Platform';
+
+    const { data: authData } = await supabase.auth.getSession();
+    if (!authData.session) throw new Error('Logg inn i admin først, og åpne forhåndsvisning derfra.');
+
+    const [{ data: rebus, error: rebusError }, { data: task, error: taskError }] = await Promise.all([
+      supabase
+        .from('rebuses')
+        .select('id, title, description, organization_id, show_live_score')
+        .eq('id', rebusId)
+        .single(),
+      supabase
+        .from('tasks')
+        .select('*, task_options(*), task_assets(*), task_hints(*), rebus_stops(*)')
+        .eq('id', taskId)
+        .eq('rebus_id', rebusId)
+        .single()
+    ]);
+    if (rebusError) throw rebusError;
+    if (taskError) throw taskError;
+
+    const { data: settings } = await supabase
+      .from('project_settings')
+      .select('google_maps_api_key')
+      .eq('organization_id', rebus.organization_id)
+      .maybeSingle();
+
+    session = {
+      token: '',
+      student: {
+        id: 'preview',
+        displayName: 'Forhåndsvisning',
+        teamName: 'Lærer'
+      },
+      rebus: {
+        id: rebus.id,
+        title: `Forhåndsvisning: ${rebus.title}`,
+        description: rebus.description,
+        showLiveScore: false,
+        googleMapsApiKey: settings?.google_maps_api_key || config.googleMapsApiKey || ''
+      },
+      tasks: [normalizePreviewTask(task)],
+      progress: [],
+      submissions: [],
+      messages: [],
+      scoreAdjustments: []
+    };
+    renderSession();
+    initStudentMap().catch(() => {});
+  }
+
+  function normalizePreviewTask(task) {
+    return {
+      id: task.id,
+      rebusId: task.rebus_id,
+      stopId: task.stop_id,
+      title: task.title,
+      description: task.description,
+      type: task.type,
+      prompt: task.prompt,
+      answer: task.answer,
+      points: task.points,
+      order: task.sort_order,
+      globalIndex: 0,
+      maxAttempts: task.max_attempts,
+      geofenceRadiusMeters: task.geofence_radius_meters,
+      config: task.config || {},
+      location: Number.isFinite(task.latitude) && Number.isFinite(task.longitude)
+        ? { lat: task.latitude, lng: task.longitude, label: task.location_label || '' }
+        : null,
+      stop: task.rebus_stops ? {
+        id: task.rebus_stops.id,
+        title: task.rebus_stops.title,
+        location: Number.isFinite(task.rebus_stops.latitude) && Number.isFinite(task.rebus_stops.longitude)
+          ? { lat: task.rebus_stops.latitude, lng: task.rebus_stops.longitude, label: task.rebus_stops.location_label || '' }
+          : null
+      } : null,
+      options: (task.task_options || []).sort((a, b) => a.sort_order - b.sort_order).map(option => ({
+        id: option.id,
+        label: option.label
+      })),
+      assets: (task.task_assets || []).sort((a, b) => a.sort_order - b.sort_order).map(asset => ({
+        id: asset.id,
+        type: asset.type,
+        title: asset.title,
+        url: asset.url
+      })),
+      hints: (task.task_hints || []).sort((a, b) => a.sort_order - b.sort_order).map(hint => ({
+        id: hint.id,
+        body: hint.body
+      }))
+    };
   }
 
   async function loadStudentOrganizations() {
