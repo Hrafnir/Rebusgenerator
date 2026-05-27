@@ -1918,6 +1918,7 @@
   }
 
   async function createRichTaskChildren(taskId) {
+    await uploadPendingTaskAssets(taskId);
     const options = collectOptions(taskId);
     const assets = collectAssets(taskId);
     const hints = collectHints(taskId);
@@ -1983,7 +1984,7 @@
   }
 
   function addAssetRow() {
-    state.assetRows.push({ id: crypto.randomUUID(), type: 'image', title: '', url: '', fileName: '' });
+    state.assetRows.push({ id: crypto.randomUUID(), type: 'image', title: '', url: '', fileName: '', file: null, uploadStatus: '' });
     renderAssetRows();
   }
 
@@ -2021,6 +2022,7 @@
         <label><span>URL</span><input data-asset-url value="${escapeHtml(row.url)}" placeholder="https://..."></label>
         <button class="ghost" type="button" data-remove-asset>Fjern</button>
         <label class="file-note"><span>Fil fra maskinen</span><input data-asset-file type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx"></label>
+        ${row.fileName ? `<p class="muted">Valgt fil: ${escapeHtml(row.fileName)}${row.uploadStatus ? ` · ${escapeHtml(row.uploadStatus)}` : ' · lastes opp når oppgaven lagres'}</p>` : ''}
       </div>
     `).join('') : '<p class="muted">Ingen media lagt til. Oppgaven kan fortsatt ha bare tekst.</p>';
     bindAssetRows();
@@ -2085,8 +2087,16 @@
       element.querySelector('[data-asset-file]').addEventListener('change', event => {
         const file = event.target.files && event.target.files[0];
         row.fileName = file ? file.name : '';
+        row.file = file || null;
+        row.uploadStatus = '';
         if (file && !row.title) row.title = file.name;
-        if (file && !row.url) row.url = `local-file://${file.name}`;
+        if (file) {
+          row.url = '';
+          if (file.type.startsWith('audio/')) row.type = 'audio';
+          else if (file.type.startsWith('video/')) row.type = 'video';
+          else if (file.type.startsWith('image/')) row.type = 'image';
+          else row.type = 'document';
+        }
         renderAssetRows();
       });
       element.querySelector('[data-remove-asset]').addEventListener('click', () => {
@@ -2151,8 +2161,47 @@
         type: row.type,
         title: row.title || row.fileName || row.type,
         url: row.url || null,
+        storage_bucket: row.storageBucket || null,
+        storage_path: row.storagePath || null,
         sort_order: index + 1
       }));
+  }
+
+  async function uploadPendingTaskAssets(taskId) {
+    if (state.mode !== 'supabase') return;
+    for (const row of state.assetRows) {
+      if (!row.file) continue;
+      row.uploadStatus = 'laster opp...';
+      renderAssetRows();
+      const storagePath = [
+        state.selectedOrganization?.id || 'organization',
+        state.selectedRebus?.id || 'rebus',
+        taskId,
+        `${Date.now()}-${safeStorageName(row.file.name)}`
+      ].join('/');
+      const { error } = await state.supabase.storage
+        .from('task-assets')
+        .upload(storagePath, row.file, {
+          contentType: row.file.type || 'application/octet-stream',
+          upsert: false
+        });
+      if (error) throw error;
+      const { data } = state.supabase.storage.from('task-assets').getPublicUrl(storagePath);
+      row.url = data.publicUrl;
+      row.storageBucket = 'task-assets';
+      row.storagePath = storagePath;
+      row.uploadStatus = 'opplastet';
+      row.file = null;
+    }
+  }
+
+  function safeStorageName(name) {
+    return String(name || 'media')
+      .normalize('NFKD')
+      .replace(/[^\w.\-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 90) || 'media';
   }
 
   function collectHints(taskId) {
