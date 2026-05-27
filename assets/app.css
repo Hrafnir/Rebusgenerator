@@ -470,6 +470,39 @@ button.compact {
   gap: 6px;
 }
 
+.auth-panel {
+  margin-bottom: 16px;
+}
+
+.access-list {
+  display: grid;
+  gap: 14px;
+}
+
+.access-section {
+  display: grid;
+  gap: 8px;
+}
+
+.access-section h4 {
+  margin: 0;
+}
+
+.access-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.access-row p {
+  margin: 3px 0 0;
+}
+
 .student-score-grid {
   margin-bottom: 0;
 }

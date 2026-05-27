@@ -36,6 +36,12 @@
     seenMessageIds: new Set(),
     adminMessageDrafts: new Map(),
     expandedGroupId: null,
+    access: {
+      orgMembers: [],
+      orgInvites: [],
+      rebusAdmins: [],
+      rebusInvites: []
+    },
     orgSidebarCollapsed: localStorage.getItem('orgSidebarCollapsed') === 'true'
   };
 
@@ -86,6 +92,7 @@
     const usingSupabase = state.mode === 'supabase';
     $('supabase-login-button').hidden = !usingSupabase;
     $('logout-button').hidden = true;
+    if ($('email-auth-panel')) $('email-auth-panel').hidden = !usingSupabase;
     $('google-login-slot').hidden = usingSupabase;
     $('login-button').hidden = usingSupabase || !state.config.allowDevAuth;
     $('teacher-email').hidden = usingSupabase || !state.config.allowDevAuth;
@@ -188,6 +195,46 @@
     if (error) throw error;
   }
 
+  async function signInWithEmailPassword() {
+    if (state.mode !== 'supabase') return;
+    const email = $('email-auth-email').value.trim().toLowerCase();
+    const password = $('email-auth-password').value;
+    if (!email || !password) return setEmailAuthStatus('Skriv inn e-post og passord først.');
+    setEmailAuthStatus('Logger inn...');
+    const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    setEmailAuthStatus('');
+  }
+
+  async function signUpWithEmailPassword() {
+    if (state.mode !== 'supabase') return;
+    const email = $('email-auth-email').value.trim().toLowerCase();
+    const password = $('email-auth-password').value;
+    const fullName = $('email-auth-name').value.trim();
+    if (!email || !password) return setEmailAuthStatus('Skriv inn e-post og passord først.');
+    if (password.length < 6) return setEmailAuthStatus('Passordet må ha minst 6 tegn.');
+    setEmailAuthStatus('Oppretter konto...');
+    const { data, error } = await state.supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName || email },
+        emailRedirectTo: appUrl('admin/')
+      }
+    });
+    if (error) throw error;
+    if (!data.session) {
+      setEmailAuthStatus('Konto opprettet. Sjekk e-posten din og bekreft kontoen før du logger inn.');
+      return;
+    }
+    setEmailAuthStatus('');
+  }
+
+  function setEmailAuthStatus(message) {
+    const element = $('email-auth-status');
+    if (element) element.textContent = message || '';
+  }
+
   async function setSupabaseSession(session) {
     state.session = session;
     state.user = session.user;
@@ -195,6 +242,7 @@
     localStorage.setItem('teacherEmail', state.teacherEmail);
     $('logout-button').hidden = false;
     $('supabase-login-button').hidden = true;
+    if ($('email-auth-panel')) $('email-auth-panel').hidden = true;
     updateAuthStatus();
     await acceptInvitations();
     await loadProfile();
@@ -211,9 +259,11 @@
     state.projectSettings = null;
     state.rebuses = [];
     state.selectedRebus = null;
+    state.access = { orgMembers: [], orgInvites: [], rebusAdmins: [], rebusInvites: [] };
     localStorage.removeItem(SELECTED_ORG_STORAGE_KEY);
     $('logout-button').hidden = true;
     $('supabase-login-button').hidden = false;
+    if ($('email-auth-panel')) $('email-auth-panel').hidden = false;
     updateAuthStatus();
     renderProfile();
     state.organizationPickerOpen = false;
@@ -403,6 +453,7 @@
     setWorkspaceVisible(true);
     await loadProjectSettings();
     await loadRebuses();
+    await loadAccessManagement();
     renderOrganizations();
     configureMapsUi();
   }
@@ -428,6 +479,7 @@
       : '<p class="muted">Du har ingen organisasjoner ennå. Be en admin invitere deg, eller opprett en egen organisasjon.</p>';
     if ($('organization-list')) $('organization-list').innerHTML = organizationButtons;
     if ($('organization-choice-list')) $('organization-choice-list').innerHTML = organizationButtons;
+    renderAccessManagement();
 
     document.querySelectorAll('[data-org-id]').forEach(button => {
       button.addEventListener('click', () => selectOrganization(button.dataset.orgId).catch(error => alert(error.message)));
@@ -480,8 +532,8 @@
 
   async function inviteOrganizationAdmin() {
     if (state.mode !== 'supabase' || !state.selectedOrganization) return alert('Velg organisasjon først.');
-    const email = $('org-invite-email').value.trim().toLowerCase();
-    const role = $('org-invite-role').value;
+    const email = (($('access-org-invite-email')?.value || $('org-invite-email')?.value || '').trim()).toLowerCase();
+    const role = $('access-org-invite-role')?.value || $('org-invite-role')?.value || 'teacher';
     if (!email) return alert('Skriv inn e-post først.');
     const { error } = await state.supabase
       .from('organization_invitations')
@@ -493,26 +545,171 @@
         accepted_at: null
       }, { onConflict: 'organization_id,email' });
     if (error) throw error;
-    $('org-invite-email').value = '';
+    if ($('org-invite-email')) $('org-invite-email').value = '';
+    if ($('access-org-invite-email')) $('access-org-invite-email').value = '';
+    await loadAccessManagement();
     showNotification('Invitasjon lagret', `${email} får tilgang til organisasjonen når hen logger inn.`);
   }
 
   async function inviteRebusAdmin() {
     if (state.mode !== 'supabase' || !state.selectedRebus) return alert('Velg en rebus først.');
-    const email = $('rebus-invite-email').value.trim().toLowerCase();
+    const email = (($('access-rebus-invite-email')?.value || $('rebus-invite-email')?.value || '').trim()).toLowerCase();
     if (!email) return alert('Skriv inn e-post først.');
       const { error } = await state.supabase
         .from('rebus_invitations')
         .upsert({
           rebus_id: state.selectedRebus.id,
           email,
-          role: $('rebus-invite-role').value,
+          role: $('access-rebus-invite-role')?.value || $('rebus-invite-role')?.value || 'teacher',
           invited_by: state.user.id,
           accepted_at: null
         }, { onConflict: 'rebus_id,email' });
     if (error) throw error;
-    $('rebus-invite-email').value = '';
+    if ($('rebus-invite-email')) $('rebus-invite-email').value = '';
+    if ($('access-rebus-invite-email')) $('access-rebus-invite-email').value = '';
+    await loadAccessManagement();
     showNotification('Rebus-invitasjon lagret', `${email} får admin-tilgang bare til denne rebusen.`);
+  }
+
+  async function loadAccessManagement() {
+    if (state.mode !== 'supabase' || !state.selectedOrganization) {
+      state.access = { orgMembers: [], orgInvites: [], rebusAdmins: [], rebusInvites: [] };
+      renderAccessManagement();
+      return;
+    }
+
+    const [{ data: orgMembers, error: membersError }, { data: orgInvites, error: invitesError }] = await Promise.all([
+      state.supabase
+        .from('organization_members')
+        .select('organization_id, user_id, role, created_at')
+        .eq('organization_id', state.selectedOrganization.id)
+        .order('created_at', { ascending: true }),
+      state.supabase
+        .from('organization_invitations')
+        .select('id, email, role, accepted_at, created_at')
+        .eq('organization_id', state.selectedOrganization.id)
+        .order('created_at', { ascending: false })
+    ]);
+    if (membersError) throw membersError;
+    if (invitesError) throw invitesError;
+
+    let rebusAdmins = [];
+    let rebusInvites = [];
+    if (state.selectedRebus) {
+      const [{ data: adminsData, error: adminsError }, { data: rebusInvitesData, error: rebusInvitesError }] = await Promise.all([
+        state.supabase
+          .from('rebus_admins')
+          .select('rebus_id, user_id, created_at')
+          .eq('rebus_id', state.selectedRebus.id)
+          .order('created_at', { ascending: true }),
+        state.supabase
+          .from('rebus_invitations')
+          .select('id, email, role, accepted_at, created_at')
+          .eq('rebus_id', state.selectedRebus.id)
+          .order('created_at', { ascending: false })
+      ]);
+      if (adminsError) throw adminsError;
+      if (rebusInvitesError) throw rebusInvitesError;
+      rebusAdmins = adminsData || [];
+      rebusInvites = rebusInvitesData || [];
+    }
+
+    const profileIds = [...new Set([
+      ...(orgMembers || []).map(item => item.user_id),
+      ...(rebusAdmins || []).map(item => item.user_id)
+    ].filter(Boolean))];
+    const profilesById = await loadProfilesById(profileIds);
+    state.access = {
+      orgMembers: (orgMembers || []).map(item => ({ ...item, profile: profilesById.get(item.user_id) })),
+      orgInvites: orgInvites || [],
+      rebusAdmins: (rebusAdmins || []).map(item => ({ ...item, profile: profilesById.get(item.user_id) })),
+      rebusInvites
+    };
+    renderAccessManagement();
+  }
+
+  async function loadProfilesById(ids) {
+    const profilesById = new Map();
+    if (!ids.length) return profilesById;
+    const { data, error } = await state.supabase
+      .from('profiles')
+      .select('id, email, full_name, nickname')
+      .in('id', ids);
+    if (error) throw error;
+    (data || []).forEach(profile => profilesById.set(profile.id, profile));
+    return profilesById;
+  }
+
+  function renderAccessManagement() {
+    const orgRoot = $('organization-access-list');
+    const rebusRoot = $('rebus-access-list');
+    if (orgRoot) {
+      orgRoot.innerHTML = state.selectedOrganization ? `
+        <div class="access-section">
+          <h4>Aktive i organisasjonen</h4>
+          ${state.access.orgMembers.length ? state.access.orgMembers.map(renderOrgAccessRow).join('') : '<p class="muted">Ingen medlemmer funnet ennå.</p>'}
+        </div>
+        <div class="access-section">
+          <h4>Invitasjoner</h4>
+          ${state.access.orgInvites.length ? state.access.orgInvites.map(renderInviteRow).join('') : '<p class="muted">Ingen åpne invitasjoner.</p>'}
+        </div>
+      ` : '<p class="muted">Velg organisasjon først.</p>';
+    }
+    if (rebusRoot) {
+      rebusRoot.innerHTML = state.selectedRebus ? `
+        <div class="access-section">
+          <h4>Direkte tilgang til ${escapeHtml(state.selectedRebus.title || 'rebusen')}</h4>
+          ${state.access.rebusAdmins.length ? state.access.rebusAdmins.map(renderRebusAccessRow).join('') : '<p class="muted">Ingen har direkte rebus-tilgang ennå.</p>'}
+        </div>
+        <div class="access-section">
+          <h4>Invitasjoner til rebusen</h4>
+          ${state.access.rebusInvites.length ? state.access.rebusInvites.map(renderInviteRow).join('') : '<p class="muted">Ingen åpne rebus-invitasjoner.</p>'}
+        </div>
+      ` : '<p class="muted">Velg en rebus først, så kan du invitere bare til den rebusen.</p>';
+    }
+  }
+
+  function renderOrgAccessRow(member) {
+    const profile = member.profile || {};
+    return `
+      <article class="access-row">
+        <div>
+          <strong>${escapeHtml(profile.nickname || profile.full_name || profile.email || member.user_id)}</strong>
+          <p class="muted">${escapeHtml(profile.email || '')}</p>
+        </div>
+        <span class="status-pill submitted">${roleLabel(member.role)}</span>
+      </article>
+    `;
+  }
+
+  function renderRebusAccessRow(member) {
+    const profile = member.profile || {};
+    return `
+      <article class="access-row">
+        <div>
+          <strong>${escapeHtml(profile.nickname || profile.full_name || profile.email || member.user_id)}</strong>
+          <p class="muted">${escapeHtml(profile.email || '')}</p>
+        </div>
+        <span class="status-pill submitted">Rebus-admin</span>
+      </article>
+    `;
+  }
+
+  function renderInviteRow(invite) {
+    return `
+      <article class="access-row">
+        <div>
+          <strong>${escapeHtml(invite.email)}</strong>
+          <p class="muted">${invite.accepted_at ? 'Akseptert' : 'Venter på innlogging med samme e-post'}</p>
+        </div>
+        <span class="status-pill ${invite.accepted_at ? 'success' : 'pending'}">${roleLabel(invite.role)}</span>
+      </article>
+    `;
+  }
+
+  function roleLabel(role) {
+    const labels = { owner: 'Eier', admin: 'Admin', teacher: 'Lærer', viewer: 'Lesetilgang' };
+    return labels[role] || role || 'Tilgang';
   }
 
   function currentMapsKey() {
@@ -673,6 +870,7 @@
       if (error) throw error;
       state.selectedRebus = normalizeSupabaseRebus(data);
       await loadGroupMessages({ notify: false, rerender: false });
+      await loadAccessManagement();
     } else {
       const data = await localApi(`/api/admin/rebuses/${id}`);
       state.selectedRebus = data.rebus;
@@ -750,6 +948,7 @@
     renderSubmissionList();
     renderChatTab();
     renderChatSidebar();
+    renderAccessManagement();
     setDefaultGroupFields();
     bindTaskListActions();
   }
@@ -763,6 +962,7 @@
     $('submission-list').innerHTML = '';
     $('chat-panel').innerHTML = '';
     renderChatSidebar();
+    renderAccessManagement();
     $('live-body').innerHTML = '<tr><td colspan="7" class="muted">Velg en rebus først.</td></tr>';
     renderStopSelect();
   }
@@ -2643,6 +2843,7 @@
       panel.hidden = panel.id !== `tab-${tab}`;
     });
     if (tab === 'groups') setDefaultGroupFields();
+    if (tab === 'access') renderAccessManagement();
     if (tab === 'submissions') refreshSelectedRebusForSubmissions().catch(error => alert(error.message));
     if (tab === 'chat') renderChatTab();
   }
@@ -2765,6 +2966,8 @@
   const escapeAttribute = escapeHtml;
 
   $('supabase-login-button').addEventListener('click', () => signInWithSupabaseGoogle().catch(error => alert(error.message)));
+  $('email-login-button')?.addEventListener('click', () => signInWithEmailPassword().catch(error => setEmailAuthStatus(error.message)));
+  $('email-signup-button')?.addEventListener('click', () => signUpWithEmailPassword().catch(error => setEmailAuthStatus(error.message)));
   $('logout-button').addEventListener('click', () => logout().catch(error => alert(error.message)));
   $('settings-logout-button').addEventListener('click', () => logout().catch(error => alert(error.message)));
   $('login-button').addEventListener('click', () => devLogin().catch(error => alert(error.message)));
@@ -2773,6 +2976,8 @@
   $('save-nickname-button').addEventListener('click', () => saveNickname().catch(error => alert(error.message)));
   $('invite-org-admin-button').addEventListener('click', () => inviteOrganizationAdmin().catch(error => alert(error.message)));
   $('invite-rebus-admin-button').addEventListener('click', () => inviteRebusAdmin().catch(error => alert(error.message)));
+  $('access-invite-org-admin-button')?.addEventListener('click', () => inviteOrganizationAdmin().catch(error => alert(error.message)));
+  $('access-invite-rebus-admin-button')?.addEventListener('click', () => inviteRebusAdmin().catch(error => alert(error.message)));
   $('save-settings-button').addEventListener('click', () => saveProjectSettings().catch(error => alert(error.message)));
   $('task-stop-select').addEventListener('change', event => {
     state.selectedStopId = event.target.value;

@@ -35,6 +35,24 @@
       </div>
     </header>
 
+    <section id="email-auth-panel" class="panel stack auth-panel" hidden>
+      <div>
+        <p class="eyebrow">Innlogging</p>
+        <h2>Logg inn uten Google</h2>
+        <p>Bruk e-post og passord hvis du ikke vil eller kan bruke Google-konto.</p>
+      </div>
+      <div class="form-grid">
+        <label><span>Navn</span><input id="email-auth-name" autocomplete="name" placeholder="Navnet ditt"></label>
+        <label><span>E-post</span><input id="email-auth-email" type="email" autocomplete="email" placeholder="deg@skole.no"></label>
+        <label><span>Passord</span><input id="email-auth-password" type="password" autocomplete="current-password" placeholder="Minst 6 tegn"></label>
+      </div>
+      <div class="actions">
+        <button id="email-login-button" type="button">Logg inn med e-post</button>
+        <button id="email-signup-button" class="ghost" type="button">Opprett konto</button>
+      </div>
+      <p id="email-auth-status" class="muted"></p>
+    </section>
+
     <section id="organization-onboarding" class="panel stack org-onboarding" hidden>
       <div>
         <p class="eyebrow">Organisasjon</p>
@@ -87,6 +105,7 @@
 
         <nav class="tab-bar" aria-label="Administrasjon">
           <button class="tab-button active" type="button" data-admin-tab="settings">Innstillinger</button>
+          <button class="tab-button" type="button" data-admin-tab="access">Tilganger</button>
           <button class="tab-button" type="button" data-admin-tab="tasks">Oppgaver</button>
           <button class="tab-button" type="button" data-admin-tab="groups">Grupper</button>
           <button class="tab-button" type="button" data-admin-tab="submissions">Innleveringer</button>
@@ -173,6 +192,36 @@
           <div class="notice" id="maps-status">
             Setter opp kartvelger...
           </div>
+        </section>
+
+        <section id="tab-access" class="admin-tab stack" hidden>
+          <div class="builder-heading">
+            <div>
+              <h2>Tilganger</h2>
+              <p class="muted">Inviter kolleger til hele organisasjonen eller bare til den valgte rebusen.</p>
+            </div>
+          </div>
+
+          <section class="builder-section stack">
+            <h3>Organisasjons-adminer og lærere</h3>
+            <div class="form-grid">
+              <label><span>E-post</span><input id="access-org-invite-email" type="email" placeholder="kollega@skole.no"></label>
+              <label><span>Rolle</span><select id="access-org-invite-role"><option value="teacher">Lærer</option><option value="admin">Admin</option><option value="viewer">Lesetilgang</option></select></label>
+            </div>
+            <button id="access-invite-org-admin-button" class="ghost compact" type="button">Inviter til organisasjonen</button>
+            <div id="organization-access-list" class="access-list"></div>
+          </section>
+
+          <section class="builder-section stack">
+            <h3>Tilgang bare til valgt rebus</h3>
+            <p class="muted">Bruk dette når en kollega bare skal hjelpe til med én rebus, ikke hele organisasjonen.</p>
+            <div class="form-grid">
+              <label><span>E-post</span><input id="access-rebus-invite-email" type="email" placeholder="kollega@skole.no"></label>
+              <label><span>Rolle</span><select id="access-rebus-invite-role"><option value="teacher">Lærer</option><option value="admin">Admin</option></select></label>
+            </div>
+            <button id="access-invite-rebus-admin-button" class="ghost compact" type="button">Inviter til denne rebusen</button>
+            <div id="rebus-access-list" class="access-list"></div>
+          </section>
         </section>
 
         <section id="tab-tasks" class="admin-tab stack" hidden>
