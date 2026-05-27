@@ -442,6 +442,10 @@ label span {
   font-weight: 800;
 }
 
+.map-toggle-button {
+  width: fit-content;
+}
+
 .tab-bar {
   display: flex;
   gap: 8px;
@@ -1336,17 +1340,61 @@ body.modal-open {
 }
 
 .student-preview-mobile .shell {
-  width: min(430px, 100%);
-  padding: 18px 10px;
+  width: min(390px, 100%);
+  padding: 10px 6px;
+}
+
+.student-preview-mobile .app-header {
+  align-items: flex-start;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.student-preview-mobile .app-header h1 {
+  font-size: 1.25rem;
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+.student-preview-mobile .app-header p:not(.eyebrow),
+.student-preview-mobile .app-header .button {
+  display: none;
 }
 
 .student-preview-mobile .app-header,
 .student-preview-mobile .panel {
-  border-radius: 18px;
+  border-radius: 14px;
+}
+
+.student-preview-mobile #app-panel {
+  padding: 12px;
+}
+
+.student-preview-mobile #app-panel > div:first-child h2 {
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.student-preview-mobile .tab-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface);
+  padding-top: 4px;
 }
 
 .student-preview-mobile .map-picker {
-  min-height: 210px;
+  min-height: 360px;
+}
+
+.student-preview-mobile .task-card {
+  padding: 12px;
+}
+
+.student-preview-mobile .student-task-intro img {
+  max-height: 240px;
 }
 
 .map-tools input {

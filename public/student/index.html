@@ -32,18 +32,21 @@
         <h2 id="rebus-title"></h2>
         <p id="student-name" class="muted"></p>
       </div>
-      <div class="map-picker" id="student-map">
-        Elevkart lastes når posisjon er tillatt.
-      </div>
-      <p id="location-status" class="muted">Posisjon er ikke sendt ennå.</p>
       <section id="student-score-panel" class="student-score-panel"></section>
       <nav class="tab-bar" aria-label="Elevmeny">
         <button class="tab-button active" type="button" data-student-tab="task">Oppgave</button>
+        <button class="tab-button" type="button" data-student-tab="map">Kart</button>
         <button class="tab-button" type="button" data-student-tab="log">Logg</button>
         <button class="tab-button" type="button" data-student-tab="chat">Chat</button>
       </nav>
       <section id="student-tab-task" class="student-tab">
         <div id="task-list" class="list"></div>
+      </section>
+      <section id="student-tab-map" class="student-tab" hidden>
+        <div class="map-picker" id="student-map">
+          Elevkart lastes når posisjon er tillatt.
+        </div>
+        <p id="location-status" class="muted">Posisjon er ikke sendt ennå.</p>
       </section>
       <section id="student-tab-log" class="student-tab" hidden>
         <div id="student-log" class="activity-log"></div>

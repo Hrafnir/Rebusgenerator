@@ -266,6 +266,14 @@
     document.querySelectorAll('.student-tab').forEach(panel => {
       panel.hidden = panel.id !== `student-tab-${activeStudentTab}`;
     });
+    if (activeStudentTab === 'map') {
+      initStudentMap().then(() => {
+        if (studentMap && window.google?.maps) {
+          google.maps.event.trigger(studentMap, 'resize');
+          renderStudentMapState([...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)));
+        }
+      }).catch(() => {});
+    }
   }
 
   function renderCurrentTask(tasks) {
@@ -306,6 +314,7 @@
         <h3>${escapeHtml(locationTitle(task))}</h3>
         ${locationState.location && !isFindTask ? `<p class="muted">Gå til markøren på kartet. Radius: ${locationState.radius} meter.</p>` : ''}
         ${locationState.location && showDistance && locationState.distanceText ? `<p class="distance-pill">${locationState.distanceText}</p>` : ''}
+        ${locationState.location ? '<button class="ghost compact map-toggle-button" type="button" data-student-tab="map">Åpne kart</button>' : ''}
         ${locationState.location && isFindTask ? renderFindDestinationNotice(task, locationState) : ''}
         ${!previewMode && locationState.location && !locationState.inside && !isFindTask ? `
           <p class="notice">Oppgaven åpnes når dere er innenfor geofence. ${locationState.distanceText}</p>
@@ -316,8 +325,9 @@
 
   function renderTask(task, taskCount, progress) {
     const titlePrefix = taskTitlePrefix(task.globalIndex, taskCount);
+    const heroAsset = primaryHeroAsset(task);
     return `
-      ${renderTaskIntro(task)}
+      ${renderTaskIntro(task, heroAsset)}
       <article class="task-card">
         <div class="task-card-header">
           <div>
@@ -328,16 +338,15 @@
         </div>
         ${task.prompt || task.description ? `<p>${escapeHtml(task.prompt || task.description)}</p>` : ''}
         ${task.location && !isFindDestinationTask(task) ? `<p class="muted">Presis lokasjon: ${escapeHtml(task.location.label || '')} ${formatCoordinate(task.location.lat)}, ${formatCoordinate(task.location.lng)}</p>` : ''}
-        ${renderAssets(task.assets || [])}
+        ${renderAssets(task.assets || [], heroAsset?.id)}
         ${renderHints(task.hints || [])}
         ${progress && progress.correct !== false ? renderProgressDetails(progress) : `${progress ? renderRetryDetails(progress) : ''}${taskForm(task)}${previewMode ? '' : skipTaskBox(task)}`}
       </article>
     `;
   }
 
-  function renderTaskIntro(task) {
+  function renderTaskIntro(task, heroAsset = null) {
     const presentation = task.config?.presentation || {};
-    const heroAsset = (task.assets || []).find(asset => asset.type === 'image' && asset.url);
     if (!presentation.title && !presentation.intro && !heroAsset) return '';
     return `
       <section class="student-task-intro">
@@ -349,6 +358,10 @@
         </div>
       </section>
     `;
+  }
+
+  function primaryHeroAsset(task) {
+    return (task.assets || []).find(asset => asset.type === 'image' && asset.url) || null;
   }
 
   function skipTaskBox(task) {
@@ -452,11 +465,12 @@
     `).join('');
   }
 
-  function renderAssets(assets) {
-    if (!assets.length) return '';
+  function renderAssets(assets, skipAssetId = '') {
+    const visibleAssets = assets.filter(asset => asset.id !== skipAssetId);
+    if (!visibleAssets.length) return '';
     return `
       <div class="asset-list">
-        ${assets.map(asset => `
+        ${visibleAssets.map(asset => `
           <a class="asset-link" href="${escapeAttribute(asset.url)}" target="_blank" rel="noreferrer">
             ${asset.type === 'image' ? `<img class="asset-preview-image" src="${escapeAttribute(asset.url)}" alt="${escapeAttributeValue(asset.title || 'Bilde i oppgaven')}">` : ''}
             ${escapeHtml(asset.title || mediaTypeLabel(asset.type))}
@@ -798,7 +812,7 @@
   }
 
   function startLocationSending() {
-    initStudentMap().catch(() => {});
+    if (activeStudentTab === 'map') initStudentMap().catch(() => {});
     armStudentAlerts().catch(() => {});
     requestNativeNotificationPermission().catch(() => {});
     if (startBackgroundLocationWatch()) return;
@@ -1149,6 +1163,10 @@
   function setLocationStatus(message) {
     const element = $('location-status');
     if (element) element.textContent = message;
+  }
+
+  function openMapTab() {
+    switchStudentTab('map');
   }
 
   function groupLabel(index, total) {
@@ -1509,7 +1527,6 @@
       scoreAdjustments: []
     };
     renderSession();
-    initStudentMap().catch(() => {});
   }
 
   function normalizePreviewTask(task) {
