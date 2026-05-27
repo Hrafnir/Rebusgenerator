@@ -404,6 +404,44 @@ label span {
   padding: 14px;
 }
 
+.student-task-intro {
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.student-task-intro img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.student-task-intro div {
+  padding: 0 14px 14px;
+}
+
+.student-task-intro h3 {
+  margin: 0 0 6px;
+}
+
+.student-task-intro p:last-child {
+  margin-bottom: 0;
+}
+
+.distance-pill {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--info-bg);
+  color: var(--blue);
+  font-weight: 800;
+}
+
 .tab-bar {
   display: flex;
   gap: 8px;
@@ -1291,6 +1329,24 @@ body.modal-open {
 
 .live-map {
   min-height: 360px;
+}
+
+.student-preview-mobile {
+  background: #d9e3ef;
+}
+
+.student-preview-mobile .shell {
+  width: min(430px, 100%);
+  padding: 18px 10px;
+}
+
+.student-preview-mobile .app-header,
+.student-preview-mobile .panel {
+  border-radius: 18px;
+}
+
+.student-preview-mobile .map-picker {
+  min-height: 210px;
 }
 
 .map-tools input {

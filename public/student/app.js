@@ -294,6 +294,7 @@
     const locationState = taskLocationState(task);
     const title = taskTitlePrefix(currentIndex, tasks.length);
     const isFindTask = isFindDestinationTask(task);
+    const showDistance = shouldShowDistance(task);
     return `
       <div class="student-topline">
         <p class="muted">${previewMode ? 'Forhåndsvisning av én oppgave' : `${progressByTaskId.size} av ${tasks.length} oppgaver levert.`}</p>
@@ -304,6 +305,7 @@
         <p class="eyebrow">${title}</p>
         <h3>${escapeHtml(locationTitle(task))}</h3>
         ${locationState.location && !isFindTask ? `<p class="muted">Gå til markøren på kartet. Radius: ${locationState.radius} meter.</p>` : ''}
+        ${locationState.location && showDistance && locationState.distanceText ? `<p class="distance-pill">${locationState.distanceText}</p>` : ''}
         ${locationState.location && isFindTask ? renderFindDestinationNotice(task, locationState) : ''}
         ${!previewMode && locationState.location && !locationState.inside && !isFindTask ? `
           <p class="notice">Oppgaven åpnes når dere er innenfor geofence. ${locationState.distanceText}</p>
@@ -315,6 +317,7 @@
   function renderTask(task, taskCount, progress) {
     const titlePrefix = taskTitlePrefix(task.globalIndex, taskCount);
     return `
+      ${renderTaskIntro(task)}
       <article class="task-card">
         <div class="task-card-header">
           <div>
@@ -329,6 +332,22 @@
         ${renderHints(task.hints || [])}
         ${progress && progress.correct !== false ? renderProgressDetails(progress) : `${progress ? renderRetryDetails(progress) : ''}${taskForm(task)}${previewMode ? '' : skipTaskBox(task)}`}
       </article>
+    `;
+  }
+
+  function renderTaskIntro(task) {
+    const presentation = task.config?.presentation || {};
+    const heroAsset = (task.assets || []).find(asset => asset.type === 'image' && asset.url);
+    if (!presentation.title && !presentation.intro && !heroAsset) return '';
+    return `
+      <section class="student-task-intro">
+        ${heroAsset ? `<img src="${escapeAttribute(heroAsset.url)}" alt="${escapeAttributeValue(heroAsset.title || task.title || 'Bilde i oppgaven')}">` : ''}
+        <div>
+          <p class="eyebrow">${escapeHtml(taskTypeLabel(task.type))}</p>
+          <h3>${escapeHtml(presentation.title || task.title || 'Oppgave')}</h3>
+          ${presentation.intro ? `<p>${escapeHtml(presentation.intro)}</p>` : ''}
+        </div>
+      </section>
     `;
   }
 
@@ -1009,7 +1028,7 @@
     if (locationState.inside) {
       return `<p class="notice success-notice">Dere er innenfor området. Bekreft når dere er klare til å gå videre.</p>`;
     }
-    if (task.config?.findDestination?.showDistance === false) {
+    if (!shouldShowDistance(task)) {
       return '<p class="notice">Finn riktig sted. Oppgaven kan leveres når dere er innenfor området.</p>';
     }
     return `<p class="notice">Finn riktig sted. ${locationState.distanceText || 'Venter på GPS-posisjon.'}</p>`;
@@ -1017,6 +1036,12 @@
 
   function isFindDestinationTask(task) {
     return task?.type === 'find_destination';
+  }
+
+  function shouldShowDistance(task) {
+    if (task?.config?.presentation?.showDistance === false) return false;
+    if (task?.type === 'find_destination' && task?.config?.findDestination?.showDistance === false) return false;
+    return true;
   }
 
   function updateMovementTrack() {
@@ -1412,6 +1437,7 @@
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
       supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
       if (previewMode) {
+        document.body.classList.add('student-preview-mobile');
         await loadPreviewSession(params.get('rebusId'), params.get('previewTask'));
         return;
       }

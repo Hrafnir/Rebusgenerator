@@ -1772,6 +1772,7 @@
           answerMode: $('task-type').value,
           createdInBuilder: true,
           hasTeacherMedia: state.assetRows.length > 0,
+          presentation: buildPresentationConfig(),
           ...(buildFindDestinationConfig() ? { findDestination: buildFindDestinationConfig() } : {}),
           ...(buildMovementConfig() ? { movement: buildMovementConfig() } : {}),
           ...(buildNumberRules() ? { numberRules: buildNumberRules() } : {})
@@ -1864,6 +1865,9 @@
     $('task-prompt').value = task.prompt || '';
     $('task-answer').value = task.answer || '';
     $('find-show-distance').checked = task.config?.findDestination?.showDistance !== false;
+    $('presentation-title').value = task.config?.presentation?.title || '';
+    $('presentation-intro').value = task.config?.presentation?.intro || '';
+    $('presentation-show-distance').checked = task.config?.presentation?.showDistance !== false;
     $('target-speed-kmh').value = task.config?.movement?.targetSpeedKmh || 3;
     state.selectedStopId = task.stop_id || '';
     renderStopSelect();
@@ -1956,6 +1960,9 @@
     state.assetRows = [];
     state.hintRows = [];
     $('find-show-distance').checked = true;
+    $('presentation-title').value = '';
+    $('presentation-intro').value = '';
+    $('presentation-show-distance').checked = true;
     $('target-speed-kmh').value = 3;
     state.numberBands = [
       { id: crypto.randomUUID(), maxDeviation: 0, points: Number($('task-points').value || 5) },
@@ -2248,6 +2255,14 @@
     if ($('task-type').value !== 'find_destination') return null;
     return {
       showDistance: $('find-show-distance').checked
+    };
+  }
+
+  function buildPresentationConfig() {
+    return {
+      title: $('presentation-title').value.trim(),
+      intro: $('presentation-intro').value.trim(),
+      showDistance: $('presentation-show-distance').checked
     };
   }
 
