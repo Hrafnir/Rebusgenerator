@@ -415,8 +415,10 @@ label span {
 
 .student-task-intro img {
   width: 100%;
-  max-height: 280px;
+  height: 260px;
+  max-height: none;
   object-fit: cover;
+  object-position: center;
   background: var(--surface);
 }
 
@@ -1337,11 +1339,12 @@ body.modal-open {
 
 .student-preview-mobile {
   background: #d9e3ef;
+  overflow-x: hidden;
 }
 
 .student-preview-mobile .shell {
-  width: min(390px, 100%);
-  padding: 10px 6px;
+  width: min(390px, calc(100% - 12px));
+  padding: 10px 0;
 }
 
 .student-preview-mobile .app-header {
@@ -1370,6 +1373,7 @@ body.modal-open {
 
 .student-preview-mobile #app-panel {
   padding: 12px;
+  overflow: hidden;
 }
 
 .student-preview-mobile #app-panel > div:first-child h2 {
@@ -1394,7 +1398,7 @@ body.modal-open {
 }
 
 .student-preview-mobile .student-task-intro img {
-  max-height: 240px;
+  max-width: 100%;
 }
 
 .map-tools input {

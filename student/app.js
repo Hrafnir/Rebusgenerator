@@ -383,7 +383,7 @@
     if (!presentation.title && !presentation.intro && !heroAsset) return '';
     return `
       <section class="student-task-intro">
-        ${heroAsset ? `<img src="${escapeAttribute(heroAsset.url)}" alt="${escapeAttributeValue(heroAsset.title || task.title || 'Bilde i oppgaven')}">` : ''}
+        ${heroAsset ? `<img class="student-task-hero-image" style="${heroImageStyle(presentation)}" src="${escapeAttribute(heroAsset.url)}" alt="${escapeAttributeValue(heroAsset.title || task.title || 'Bilde i oppgaven')}">` : ''}
         <div>
           <p class="eyebrow">${escapeHtml(taskTypeLabel(task.type))}</p>
           <h3>${escapeHtml(presentation.title || task.title || 'Oppgave')}</h3>
@@ -391,6 +391,16 @@
         </div>
       </section>
     `;
+  }
+
+  function heroImageStyle(presentation = {}) {
+    const fitValues = { cover: 'cover', contain: 'contain' };
+    const heightValues = { compact: '180px', normal: '260px', tall: '340px' };
+    const positionValues = { center: 'center', top: 'top', bottom: 'bottom', left: 'left', right: 'right' };
+    const fit = fitValues[presentation.imageFit] || 'cover';
+    const height = heightValues[presentation.imageHeight] || heightValues.normal;
+    const position = positionValues[presentation.imagePosition] || 'center';
+    return `height:${height};object-fit:${fit};object-position:${position};`;
   }
 
   function primaryHeroAsset(task) {

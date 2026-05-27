@@ -1868,6 +1868,9 @@
     $('presentation-title').value = task.config?.presentation?.title || '';
     $('presentation-intro').value = task.config?.presentation?.intro || '';
     $('presentation-show-distance').checked = task.config?.presentation?.showDistance !== false;
+    $('presentation-image-fit').value = task.config?.presentation?.imageFit || 'cover';
+    $('presentation-image-height').value = task.config?.presentation?.imageHeight || 'normal';
+    $('presentation-image-position').value = task.config?.presentation?.imagePosition || 'center';
     $('target-speed-kmh').value = task.config?.movement?.targetSpeedKmh || 3;
     state.selectedStopId = task.stop_id || '';
     renderStopSelect();
@@ -1963,6 +1966,9 @@
     $('presentation-title').value = '';
     $('presentation-intro').value = '';
     $('presentation-show-distance').checked = true;
+    $('presentation-image-fit').value = 'cover';
+    $('presentation-image-height').value = 'normal';
+    $('presentation-image-position').value = 'center';
     $('target-speed-kmh').value = 3;
     state.numberBands = [
       { id: crypto.randomUUID(), maxDeviation: 0, points: Number($('task-points').value || 5) },
@@ -2262,7 +2268,10 @@
     return {
       title: $('presentation-title').value.trim(),
       intro: $('presentation-intro').value.trim(),
-      showDistance: $('presentation-show-distance').checked
+      showDistance: $('presentation-show-distance').checked,
+      imageFit: $('presentation-image-fit').value,
+      imageHeight: $('presentation-image-height').value,
+      imagePosition: $('presentation-image-position').value
     };
   }
 
