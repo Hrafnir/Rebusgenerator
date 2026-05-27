@@ -627,6 +627,62 @@ button.compact {
   margin: 4px 0 0;
 }
 
+.pace-meter {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-alt);
+}
+
+.pace-meter p {
+  margin: 0;
+}
+
+.pace-meter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pace-meter-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface);
+}
+
+.pace-meter-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pace-meter-grid strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.25rem;
+}
+
+.pace-advice {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+
+.pace-advice.on-pace {
+  background: var(--success-bg);
+  color: var(--green);
+}
+
+.pace-advice.too-slow,
+.pace-advice.too-fast {
+  background: var(--warning-bg);
+  color: var(--amber);
+}
+
 .group-card {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr);

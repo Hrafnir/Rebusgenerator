@@ -130,10 +130,10 @@ async function recordSubmissionSupabase(token, input) {
       student_id: student.id,
       rebus_id: student.rebus_id,
       task_id: task.id,
-      answer: input.note || input.originalName || '',
+      answer: task.type === 'speed_photo' ? `[RASK_ETAPPE] Bilde levert: ${input.originalName || 'innlevering'}` : (input.note || input.originalName || ''),
       status: 'submitted',
-      correct: null,
-      points_awarded: 0
+      correct: task.type === 'speed_photo' ? true : null,
+      points_awarded: task.type === 'speed_photo' ? Number(task.points || 0) : 0
     })
   });
 
@@ -214,6 +214,14 @@ function evaluateAnswer(task, answer, optionIds) {
   if (task.type === 'find_destination') {
     return {
       answerText: '[FUNNET_FREM] Laget fant riktig sted.',
+      correct: true,
+      pointsAwarded: task.points
+    };
+  }
+
+  if (task.type === 'pace_match') {
+    return {
+      answerText: '[JEVN_FART] Fremme. Fart beregnes i Supabase-modus.',
       correct: true,
       pointsAwarded: task.points
     };

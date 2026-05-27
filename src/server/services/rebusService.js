@@ -262,13 +262,19 @@ function recordProgress(token, input) {
     if (!student || !task) return null;
 
     const answer = String(input.answer || '').trim();
-    const correct = task.answer ? answer.toLowerCase() === String(task.answer).trim().toLowerCase() : null;
+    const isArrivalTask = task.type === 'find_destination' || task.type === 'pace_match';
+    const correct = isArrivalTask ? true : task.answer ? answer.toLowerCase() === String(task.answer).trim().toLowerCase() : null;
+    const answerText = task.type === 'find_destination'
+      ? '[FUNNET_FREM] Laget fant riktig sted.'
+      : task.type === 'pace_match'
+        ? '[JEVN_FART] Fremme. Fart beregnes i Supabase-modus.'
+        : answer;
     const progress = {
       id: createId('progress'),
       studentId: student.id,
       rebusId: student.rebusId,
       taskId: task.id,
-      answer,
+      answer: answerText,
       status: correct === false ? 'needs_retry' : 'submitted',
       correct,
       pointsAwarded: correct ? task.points : 0,
@@ -313,10 +319,10 @@ function recordSubmission(token, input) {
       studentId: student.id,
       rebusId: student.rebusId,
       taskId: task.id,
-      answer: submission.url,
+      answer: task.type === 'speed_photo' ? `[RASK_ETAPPE] Bilde levert: ${submission.originalName || 'innlevering'}` : submission.url,
       status: 'submitted',
-      correct: null,
-      pointsAwarded: 0,
+      correct: task.type === 'speed_photo' ? true : null,
+      pointsAwarded: task.type === 'speed_photo' ? Number(task.points || 0) : 0,
       submissionId: submission.id,
       createdAt: submission.createdAt
     };

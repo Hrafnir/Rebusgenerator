@@ -16,6 +16,7 @@
   let alertAudioContext = null;
   let wakeLockSentinel = null;
   let messagePollId = null;
+  let movementTrack = null;
   let organizations = [];
   const geofenceAlertedTaskIds = new Set();
   const pendingUploads = new Map();
@@ -198,11 +199,13 @@
       const answer = String(item.answer || '');
       const skipped = answer.startsWith('[GITT_OPP]');
       const found = answer.startsWith('[FUNNET_FREM]');
+      const pace = answer.startsWith('[JEVN_FART]');
+      const speed = answer.startsWith('[RASK_ETAPPE]');
       const media = answer.startsWith('[MEDIA_LEVERT]');
       return {
         kind: skipped ? 'penalty-line' : 'submitted',
         createdAt: item.createdAt || item.created_at,
-        title: found ? `Kom frem til ${task?.title || 'post'}` : skipped ? `Ga opp ${task?.title || 'oppgave'}` : `Leverte ${task?.title || 'oppgave'}`,
+        title: found || pace || speed ? `Kom frem til ${task?.title || 'post'}` : skipped ? `Ga opp ${task?.title || 'oppgave'}` : `Leverte ${task?.title || 'oppgave'}`,
         body: media ? 'Media er levert og venter på lærervurdering.' : skipped ? 'Dere gikk videre uten poeng fra denne posten.' : formatPlainAnswer(answer)
       };
     });
@@ -230,6 +233,8 @@
     const value = String(answer || '');
     if (!value) return 'Oppgaven er levert.';
     if (value.startsWith('[FUNNET_FREM]')) return 'Dere fant riktig sted.';
+    if (value.startsWith('[JEVN_FART]')) return value.replace('[JEVN_FART]', '').trim();
+    if (value.startsWith('[RASK_ETAPPE]')) return value.replace('[RASK_ETAPPE]', '').trim();
     return `Svar: ${value}`;
   }
 
@@ -369,8 +374,20 @@
       `;
     }
 
-    if (task.type === 'photo' || task.type === 'video' || task.type === 'audio') {
-      const accept = task.type === 'photo' ? 'image/*' : task.type === 'audio' ? 'audio/*' : 'video/*';
+    if (task.type === 'pace_match') {
+      const target = Number(task.config?.movement?.targetSpeedKmh || 3);
+      return `
+        <p class="muted">Hold jevn fart nær ${target} km/t. GPS-målinger underveis brukes i poengberegningen.</p>
+        <div id="pace-meter-${task.id}" class="pace-meter">
+          ${renderPaceMeter(task)}
+        </div>
+        <button data-submit-task="${task.id}">Vi er fremme</button>
+        <p id="task-status-${task.id}" class="muted"></p>
+      `;
+    }
+
+    if (task.type === 'photo' || task.type === 'video' || task.type === 'audio' || task.type === 'speed_photo') {
+      const accept = task.type === 'photo' || task.type === 'speed_photo' ? 'image/*' : task.type === 'audio' ? 'audio/*' : 'video/*';
       const pendingUpload = pendingUploads.get(task.id);
       if (pendingUpload) {
         return `
@@ -487,14 +504,15 @@
       }
     } else {
       const input = document.getElementById(`answer-${taskId}`);
-      payload.answer = isFindDestinationTask(task) ? 'Fremme' : (input ? input.value : '');
-      if (!String(payload.answer).trim() && task?.type !== 'teacher_approved' && !isFindDestinationTask(task)) {
+      payload.answer = isFindDestinationTask(task) || task?.type === 'pace_match' ? 'Fremme' : (input ? input.value : '');
+      if (!String(payload.answer).trim() && task?.type !== 'teacher_approved' && !isFindDestinationTask(task) && task?.type !== 'pace_match') {
         if (status) status.textContent = 'Skriv inn et svar først.';
         return;
       }
     }
 
     if (status) status.textContent = 'Leverer...';
+    if (task?.type === 'pace_match' && currentCoords) sendLocation(currentCoords);
     const progress = mode === 'supabase'
       ? await recordSupabaseProgress(payload)
       : (await api('/api/student/progress', {
@@ -808,6 +826,7 @@
 
   function handleLocationUpdate(coords) {
     currentCoords = coords;
+    updateMovementTrack();
     updateStudentPosition(coords.lat, coords.lng);
     const previousGateKey = lastGateKey;
     const gateKey = currentGateKey();
@@ -820,6 +839,7 @@
       renderStudentMapState([...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)));
     }
     if (enteredGeofence) handleGeofenceEntry(taskInfo.task);
+    updateMovementPacePanel();
     sendLocation(coords);
   }
 
@@ -981,6 +1001,67 @@
     return task?.type === 'find_destination';
   }
 
+  function updateMovementTrack() {
+    const taskInfo = currentTaskInfo();
+    const task = taskInfo?.task;
+    if (task?.type !== 'pace_match' || !currentCoords) {
+      movementTrack = null;
+      return;
+    }
+    if (!movementTrack || movementTrack.taskId !== task.id) {
+      movementTrack = {
+        taskId: task.id,
+        startCoords: { ...currentCoords },
+        startedAt: Date.now()
+      };
+    }
+    movementTrack.lastCoords = { ...currentCoords };
+  }
+
+  function renderPaceMeter(task) {
+    const target = Number(task.config?.movement?.targetSpeedKmh || 3);
+    if (!currentCoords) {
+      return `
+        <strong>Venter på GPS</strong>
+        <p>Fartsmåleren starter når mobilen har posisjon.</p>
+      `;
+    }
+    updateMovementTrack();
+    if (!movementTrack || movementTrack.taskId !== task.id) {
+      return `
+        <strong>Klar</strong>
+        <p>Begynn å gå, så viser vi snittfarten her.</p>
+      `;
+    }
+    const elapsedSeconds = Math.max(1, (Date.now() - movementTrack.startedAt) / 1000);
+    const distance = distanceMeters(movementTrack.startCoords, currentCoords);
+    const averageSpeed = (distance / elapsedSeconds) * 3.6;
+    const difference = averageSpeed - target;
+    const label = Math.abs(difference) <= 0.25
+      ? 'Veldig bra tempo'
+      : difference < 0
+        ? 'Gass litt opp'
+        : 'Ro litt ned';
+    const className = Math.abs(difference) <= 0.25 ? 'on-pace' : difference < 0 ? 'too-slow' : 'too-fast';
+    const remaining = taskLocationState(task).distance;
+    return `
+      <div class="pace-meter-grid">
+        <div><span>Snitt nå</span><strong>${formatSpeed(averageSpeed)}</strong></div>
+        <div><span>Mål</span><strong>${formatSpeed(target)}</strong></div>
+        <div><span>Avstand igjen</span><strong>${remaining === null ? '-' : `${Math.round(remaining)} m`}</strong></div>
+      </div>
+      <p class="pace-advice ${className}">${label}</p>
+    `;
+  }
+
+  function updateMovementPacePanel() {
+    const taskInfo = currentTaskInfo();
+    const task = taskInfo?.task;
+    if (task?.type !== 'pace_match') return;
+    const panel = document.getElementById(`pace-meter-${task.id}`);
+    if (panel) panel.innerHTML = renderPaceMeter(task);
+  }
+
   function currentGateKey() {
     if (!session) return '';
     const taskInfo = currentTaskInfo();
@@ -1043,6 +1124,8 @@
     const labels = {
       text: 'Tekstsvar',
       find_destination: 'Finn frem!',
+      speed_photo: 'Raskest til posten + bilde',
+      pace_match: 'Jevn fart',
       number: 'Tall-svar',
       multiple_choice: 'Ett riktig svar',
       multi_select: 'Flere riktige svar',
@@ -1070,6 +1153,11 @@
   function formatCoordinate(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number.toFixed(5) : '';
+  }
+
+  function formatSpeed(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? `${number.toFixed(1)} km/t` : '-';
   }
 
   function formatTime(value) {

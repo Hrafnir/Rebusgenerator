@@ -1563,6 +1563,7 @@
           createdInBuilder: true,
           hasTeacherMedia: state.assetRows.length > 0,
           ...(buildFindDestinationConfig() ? { findDestination: buildFindDestinationConfig() } : {}),
+          ...(buildMovementConfig() ? { movement: buildMovementConfig() } : {}),
           ...(buildNumberRules() ? { numberRules: buildNumberRules() } : {})
         }
       };
@@ -1653,6 +1654,7 @@
     $('task-prompt').value = task.prompt || '';
     $('task-answer').value = task.answer || '';
     $('find-show-distance').checked = task.config?.findDestination?.showDistance !== false;
+    $('target-speed-kmh').value = task.config?.movement?.targetSpeedKmh || 3;
     state.selectedStopId = task.stop_id || '';
     renderStopSelect();
     state.optionRows = task.options?.length ? task.options.map(option => ({
@@ -1743,6 +1745,7 @@
     state.assetRows = [];
     state.hintRows = [];
     $('find-show-distance').checked = true;
+    $('target-speed-kmh').value = 3;
     state.numberBands = [
       { id: crypto.randomUUID(), maxDeviation: 0, points: Number($('task-points').value || 5) },
       { id: crypto.randomUUID(), maxDeviation: 1, points: Math.max(0, Number($('task-points').value || 5) - 1) },
@@ -1760,7 +1763,14 @@
     $('options-builder').hidden = !usesOptions;
     $('number-builder').hidden = type !== 'number';
     $('find-destination-builder').hidden = type !== 'find_destination';
-    $('task-answer').closest('label').hidden = usesOptions || ['number', 'find_destination', 'photo', 'video', 'audio', 'teacher_approved'].includes(type);
+    $('movement-builder').hidden = !['speed_photo', 'pace_match'].includes(type);
+    $('target-speed-label').hidden = type !== 'pace_match';
+    $('movement-help').textContent = type === 'speed_photo'
+      ? 'Elevene ser målpunktet, kommer seg dit raskest mulig og dokumenterer at gruppa er samlet med bilde.'
+      : type === 'pace_match'
+        ? 'Elevene går til målpunktet. GPS-punktene underveis brukes til å beregne snittfart og poeng nær målfarten.'
+        : '';
+    $('task-answer').closest('label').hidden = usesOptions || ['number', 'find_destination', 'speed_photo', 'pace_match', 'photo', 'video', 'audio', 'teacher_approved'].includes(type);
     if (usesOptions && state.optionRows.length < 3) {
       while (state.optionRows.length < 3) addOptionRow(false);
       renderOptionRows();
@@ -1982,10 +1992,20 @@
     };
   }
 
+  function buildMovementConfig() {
+    const type = $('task-type').value;
+    if (!['speed_photo', 'pace_match'].includes(type)) return null;
+    return {
+      targetSpeedKmh: Number($('target-speed-kmh').value || 3)
+    };
+  }
+
   function adminTaskTypeLabel(type) {
     const labels = {
       text: 'Tekstsvar',
       find_destination: 'Finn frem!',
+      speed_photo: 'Raskest til posten + bilde',
+      pace_match: 'Jevn fart',
       number: 'Tallsvar',
       multiple_choice: 'Multiple choice',
       multi_select: 'Flere riktige valg',

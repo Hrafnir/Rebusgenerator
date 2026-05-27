@@ -207,7 +207,7 @@
         </div>
         <div class="form-grid">
           <label><span>Tittel</span><input id="task-title" placeholder="Post 1"></label>
-          <label><span>Type</span><select id="task-type"><option value="text">Tekstsvar</option><option value="find_destination">Finn frem!</option><option value="number">Tallsvar</option><option value="multiple_choice">Multiple choice</option><option value="multi_select">Flere riktige valg</option><option value="photo">Bildeinnlevering</option><option value="video">Videoinnlevering</option><option value="audio">Lydoppgave</option><option value="teacher_approved">Lærergodkjent</option><option value="qr_code">Kode/QR</option></select></label>
+          <label><span>Type</span><select id="task-type"><option value="text">Tekstsvar</option><option value="find_destination">Finn frem!</option><option value="speed_photo">Raskest til posten + bilde</option><option value="pace_match">Jevn fart</option><option value="number">Tallsvar</option><option value="multiple_choice">Multiple choice</option><option value="multi_select">Flere riktige valg</option><option value="photo">Bildeinnlevering</option><option value="video">Videoinnlevering</option><option value="audio">Lydoppgave</option><option value="teacher_approved">Lærergodkjent</option><option value="qr_code">Kode/QR</option></select></label>
           <label><span>Poeng</span><input id="task-points" type="number" value="5"></label>
           <label><span>Maks forsøk</span><input id="task-max-attempts" type="number" placeholder="Ubegrenset"></label>
           <label><span>Latitude</span><input id="task-lat" type="number" step="any" placeholder="60.79823"></label>
@@ -221,6 +221,11 @@
           <h3>Finn frem!</h3>
           <p class="muted">Elevene får oppgaveteksten og media, men ser ikke målmarkøren på kartet.</p>
           <label class="check-label"><input id="find-show-distance" type="checkbox" checked> Vis hvor mange meter som gjenstår</label>
+        </section>
+        <section id="movement-builder" class="builder-section" hidden>
+          <h3>Bevegelsesoppgave</h3>
+          <p id="movement-help" class="muted"></p>
+          <label id="target-speed-label"><span>Målfart km/t</span><input id="target-speed-kmh" type="number" step="0.1" value="3"></label>
         </section>
         <section id="number-builder" class="builder-section" hidden>
           <div class="builder-heading">

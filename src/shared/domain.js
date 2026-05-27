@@ -1,6 +1,8 @@
 const TASK_TYPES = {
   TEXT: 'text',
   FIND_DESTINATION: 'find_destination',
+  SPEED_PHOTO: 'speed_photo',
+  PACE_MATCH: 'pace_match',
   NUMBER: 'number',
   MULTIPLE_CHOICE: 'multiple_choice',
   MULTI_SELECT: 'multi_select',
