@@ -27,6 +27,9 @@
     assetRows: [],
     hintRows: [],
     numberBands: [],
+    presentationImagePositionX: 50,
+    presentationImagePositionY: 50,
+    presentationImageDrag: null,
     lastSuggestedGroupName: '',
     lastSuggestedGroupUsername: '',
     activeAdminTab: 'settings',
@@ -1869,8 +1872,10 @@
     $('presentation-intro').value = task.config?.presentation?.intro || '';
     $('presentation-show-distance').checked = task.config?.presentation?.showDistance !== false;
     $('presentation-image-fit').value = task.config?.presentation?.imageFit || 'cover';
-    $('presentation-image-height').value = task.config?.presentation?.imageHeight || 'normal';
-    $('presentation-image-position').value = task.config?.presentation?.imagePosition || 'center';
+    $('presentation-image-height-px').value = task.config?.presentation?.imageHeightPx || legacyImageHeight(task.config?.presentation?.imageHeight);
+    $('presentation-image-zoom').value = task.config?.presentation?.imageZoom || 1;
+    state.presentationImagePositionX = Number(task.config?.presentation?.imagePositionX ?? legacyImagePosition(task.config?.presentation?.imagePosition).x);
+    state.presentationImagePositionY = Number(task.config?.presentation?.imagePositionY ?? legacyImagePosition(task.config?.presentation?.imagePosition).y);
     $('target-speed-kmh').value = task.config?.movement?.targetSpeedKmh || 3;
     state.selectedStopId = task.stop_id || '';
     renderStopSelect();
@@ -1967,8 +1972,10 @@
     $('presentation-intro').value = '';
     $('presentation-show-distance').checked = true;
     $('presentation-image-fit').value = 'cover';
-    $('presentation-image-height').value = 'normal';
-    $('presentation-image-position').value = 'center';
+    $('presentation-image-height-px').value = 260;
+    $('presentation-image-zoom').value = 1;
+    state.presentationImagePositionX = 50;
+    state.presentationImagePositionY = 50;
     $('target-speed-kmh').value = 3;
     state.numberBands = [
       { id: crypto.randomUUID(), maxDeviation: 0, points: Number($('task-points').value || 5) },
@@ -2049,6 +2056,44 @@
       </div>
     `).join('') : '<p class="muted">Ingen media lagt til. Oppgaven kan fortsatt ha bare tekst.</p>';
     bindAssetRows();
+    updatePresentationImageTool();
+  }
+
+  function firstPresentationImage() {
+    return state.assetRows.find(row => row.type === 'image' && (row.previewUrl || row.url));
+  }
+
+  function updatePresentationImageTool() {
+    const tool = $('presentation-image-tool');
+    const frame = $('presentation-image-frame');
+    const image = $('presentation-image-preview');
+    if (!tool || !frame || !image) return;
+    const asset = firstPresentationImage();
+    tool.hidden = !asset;
+    if (!asset) {
+      image.removeAttribute('src');
+      return;
+    }
+    const height = Number($('presentation-image-height-px').value || 260);
+    const zoom = Number($('presentation-image-zoom').value || 1);
+    frame.style.height = `${height}px`;
+    image.src = asset.previewUrl || asset.url;
+    image.style.objectFit = $('presentation-image-fit').value || 'cover';
+    image.style.objectPosition = `${state.presentationImagePositionX}% ${state.presentationImagePositionY}%`;
+    image.style.transform = `scale(${zoom})`;
+    $('presentation-image-height-output').textContent = `${height} px`;
+    $('presentation-image-zoom-output').textContent = `${zoom.toFixed(2).replace(/0$/, '')}x`;
+  }
+
+  function resetPresentationImageCrop() {
+    state.presentationImagePositionX = 50;
+    state.presentationImagePositionY = 50;
+    $('presentation-image-zoom').value = 1;
+    updatePresentationImageTool();
+  }
+
+  function clampPercent(value) {
+    return Math.max(0, Math.min(100, Number(value) || 0));
   }
 
   function renderHintRows() {
@@ -2100,18 +2145,22 @@
       const row = state.assetRows.find(item => item.id === element.dataset.assetId);
       element.querySelector('[data-asset-type]').addEventListener('change', event => {
         row.type = event.target.value;
+        updatePresentationImageTool();
       });
       element.querySelector('[data-asset-title]').addEventListener('input', event => {
         row.title = event.target.value;
       });
       element.querySelector('[data-asset-url]').addEventListener('input', event => {
         row.url = event.target.value;
+        updatePresentationImageTool();
       });
       element.querySelector('[data-asset-file]').addEventListener('change', event => {
         const file = event.target.files && event.target.files[0];
         row.fileName = file ? file.name : '';
         row.file = file || null;
         row.uploadStatus = '';
+        if (row.previewUrl) URL.revokeObjectURL(row.previewUrl);
+        row.previewUrl = file && file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
         if (file && !row.title) row.title = file.name;
         if (file) {
           row.url = '';
@@ -2123,6 +2172,7 @@
         renderAssetRows();
       });
       element.querySelector('[data-remove-asset]').addEventListener('click', () => {
+        if (row.previewUrl) URL.revokeObjectURL(row.previewUrl);
         state.assetRows = state.assetRows.filter(item => item.id !== row.id);
         renderAssetRows();
       });
@@ -2257,6 +2307,22 @@
     };
   }
 
+  function legacyImageHeight(value) {
+    const heights = { compact: 180, normal: 260, tall: 340 };
+    return heights[value] || 260;
+  }
+
+  function legacyImagePosition(value) {
+    const positions = {
+      center: { x: 50, y: 50 },
+      top: { x: 50, y: 0 },
+      bottom: { x: 50, y: 100 },
+      left: { x: 0, y: 50 },
+      right: { x: 100, y: 50 }
+    };
+    return positions[value] || positions.center;
+  }
+
   function buildFindDestinationConfig() {
     if ($('task-type').value !== 'find_destination') return null;
     return {
@@ -2270,8 +2336,10 @@
       intro: $('presentation-intro').value.trim(),
       showDistance: $('presentation-show-distance').checked,
       imageFit: $('presentation-image-fit').value,
-      imageHeight: $('presentation-image-height').value,
-      imagePosition: $('presentation-image-position').value
+      imageHeightPx: Number($('presentation-image-height-px').value || 260),
+      imageZoom: Number($('presentation-image-zoom').value || 1),
+      imagePositionX: Math.round(state.presentationImagePositionX),
+      imagePositionY: Math.round(state.presentationImagePositionY)
     };
   }
 
@@ -3073,6 +3141,34 @@
   $('add-asset-button').addEventListener('click', addAssetRow);
   $('add-hint-button').addEventListener('click', addHintRow);
   $('add-number-band-button').addEventListener('click', addNumberBand);
+  $('presentation-image-fit').addEventListener('change', updatePresentationImageTool);
+  $('presentation-image-height-px').addEventListener('input', updatePresentationImageTool);
+  $('presentation-image-zoom').addEventListener('input', updatePresentationImageTool);
+  $('presentation-image-reset-button').addEventListener('click', resetPresentationImageCrop);
+  $('presentation-image-frame').addEventListener('pointerdown', event => {
+    if (!firstPresentationImage()) return;
+    state.presentationImageDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      positionX: state.presentationImagePositionX,
+      positionY: state.presentationImagePositionY
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  });
+  $('presentation-image-frame').addEventListener('pointermove', event => {
+    const drag = state.presentationImageDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    state.presentationImagePositionX = clampPercent(drag.positionX - ((event.clientX - drag.startX) / Math.max(1, bounds.width)) * 100);
+    state.presentationImagePositionY = clampPercent(drag.positionY - ((event.clientY - drag.startY) / Math.max(1, bounds.height)) * 100);
+    updatePresentationImageTool();
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => {
+    $('presentation-image-frame').addEventListener(type, () => {
+      state.presentationImageDrag = null;
+    });
+  });
   document.querySelectorAll('[data-admin-tab]').forEach(button => {
     button.addEventListener('click', () => switchAdminTab(button.dataset.adminTab));
   });

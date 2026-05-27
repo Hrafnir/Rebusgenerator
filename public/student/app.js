@@ -383,7 +383,11 @@
     if (!presentation.title && !presentation.intro && !heroAsset) return '';
     return `
       <section class="student-task-intro">
-        ${heroAsset ? `<img class="student-task-hero-image" style="${heroImageStyle(presentation)}" src="${escapeAttribute(heroAsset.url)}" alt="${escapeAttributeValue(heroAsset.title || task.title || 'Bilde i oppgaven')}">` : ''}
+        ${heroAsset ? `
+          <div class="student-task-hero-frame" style="${heroFrameStyle(presentation)}">
+            <img class="student-task-hero-image" style="${heroImageStyle(presentation)}" src="${escapeAttribute(heroAsset.url)}" alt="${escapeAttributeValue(heroAsset.title || task.title || 'Bilde i oppgaven')}">
+          </div>
+        ` : ''}
         <div>
           <p class="eyebrow">${escapeHtml(taskTypeLabel(task.type))}</p>
           <h3>${escapeHtml(presentation.title || task.title || 'Oppgave')}</h3>
@@ -393,14 +397,21 @@
     `;
   }
 
+  function heroFrameStyle(presentation = {}) {
+    const legacyHeights = { compact: 180, normal: 260, tall: 340 };
+    const height = Number(presentation.imageHeightPx || legacyHeights[presentation.imageHeight] || 260);
+    return `height:${Math.max(140, Math.min(460, height))}px;`;
+  }
+
   function heroImageStyle(presentation = {}) {
     const fitValues = { cover: 'cover', contain: 'contain' };
-    const heightValues = { compact: '180px', normal: '260px', tall: '340px' };
     const positionValues = { center: 'center', top: 'top', bottom: 'bottom', left: 'left', right: 'right' };
     const fit = fitValues[presentation.imageFit] || 'cover';
-    const height = heightValues[presentation.imageHeight] || heightValues.normal;
-    const position = positionValues[presentation.imagePosition] || 'center';
-    return `height:${height};object-fit:${fit};object-position:${position};`;
+    const legacyPosition = positionValues[presentation.imagePosition] || 'center';
+    const x = Number.isFinite(Number(presentation.imagePositionX)) ? `${presentation.imagePositionX}%` : legacyPosition;
+    const y = Number.isFinite(Number(presentation.imagePositionY)) ? `${presentation.imagePositionY}%` : '';
+    const zoom = Math.max(1, Math.min(2.5, Number(presentation.imageZoom || 1)));
+    return `object-fit:${fit};object-position:${x}${y ? ` ${y}` : ''};transform:scale(${zoom});`;
   }
 
   function primaryHeroAsset(task) {
