@@ -56,21 +56,22 @@
     <section id="organization-onboarding" class="panel stack org-onboarding" hidden>
       <div>
         <p class="eyebrow">Organisasjon</p>
-        <h2>Velg hvordan du vil starte</h2>
-        <p>Bruk en organisasjon du allerede er invitert til, eller opprett en ny for din skole eller gruppe.</p>
+        <h2>Velg organisasjon</h2>
+        <p>Hvis en kollega har invitert deg, skal organisasjonen dukke opp her automatisk etter innlogging.</p>
       </div>
       <div class="onboarding-grid">
         <article class="builder-section stack">
-          <h3>Bli med i eksisterende organisasjon</h3>
-          <p class="muted">Hvis en kollega har invitert deg, dukker organisasjonen opp her etter Google-innlogging med samme e-post.</p>
+          <h3>Organisasjoner du har tilgang til</h3>
+          <p id="organization-invite-help" class="muted"></p>
           <div id="organization-choice-list" class="list"></div>
+          <button id="refresh-invitations-button" class="ghost" type="button">Sjekk invitasjon på nytt</button>
         </article>
-        <article class="builder-section stack">
-          <h3>Opprett egen organisasjon</h3>
+        <details class="builder-section stack collapsed-builder-section">
+          <summary>Opprett ny organisasjon</summary>
+          <p class="muted">Bruk dette bare hvis du skal starte en helt ny skole/gruppe, ikke hvis du er invitert inn i en kollegas organisasjon.</p>
           <label><span>Organisasjonsnavn</span><input id="organization-name" placeholder="Bjørnsveen skole"></label>
-          <button id="create-organization-button" type="button">Opprett organisasjon</button>
-          <p class="muted">Nye organisasjoner må legge inn egen Google Maps API-nøkkel før kartvelgeren kan brukes.</p>
-        </article>
+          <button id="create-organization-button" class="ghost" type="button">Opprett organisasjon</button>
+        </details>
       </div>
     </section>
 

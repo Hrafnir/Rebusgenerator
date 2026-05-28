@@ -334,6 +334,18 @@ label span {
   gap: 14px;
 }
 
+.org-choice-button {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  text-align: left;
+}
+
+.org-choice-button span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .org-sidebar {
   grid-column: 1;
   grid-row: 1;

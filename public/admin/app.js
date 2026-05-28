@@ -11,6 +11,8 @@
     teacherEmail: localStorage.getItem('teacherEmail') || 'teacher@example.com',
     teacher: null,
     organizations: [],
+    pendingInvitations: [],
+    lastAcceptedInvitationCount: 0,
     selectedOrganization: null,
     projectSettings: null,
     rebuses: [],
@@ -247,8 +249,9 @@
     $('supabase-login-button').hidden = true;
     if ($('email-auth-panel')) $('email-auth-panel').hidden = true;
     updateAuthStatus();
-    await acceptInvitations();
     await loadProfile();
+    await acceptInvitations();
+    await loadPendingInvitations();
     await loadOrganizations();
     await loadLive();
   }
@@ -258,6 +261,8 @@
     state.user = null;
     state.profile = null;
     state.organizations = [];
+    state.pendingInvitations = [];
+    state.lastAcceptedInvitationCount = 0;
     state.selectedOrganization = null;
     state.projectSettings = null;
     state.rebuses = [];
@@ -357,7 +362,26 @@
     const { data, error } = await state.supabase.rpc('accept_my_invitations');
     if (error) throw error;
     const accepted = Number(data?.organizationInvites || 0) + Number(data?.rebusInvites || 0);
+    state.lastAcceptedInvitationCount = accepted;
     if (accepted) showNotification('Invitasjon aktivert', `Du fikk tilgang til ${accepted} nytt område.`);
+  }
+
+  async function loadPendingInvitations() {
+    state.pendingInvitations = [];
+    if (state.mode !== 'supabase' || !state.supabase || !state.user) return;
+    const { data, error } = await state.supabase.rpc('my_invitation_status');
+    if (error) {
+      console.warn('Kunne ikke hente invitasjonsstatus', error);
+      return;
+    }
+    state.pendingInvitations = (data || []).filter(invite => !invite.accepted_at);
+  }
+
+  async function refreshInvitationsAndOrganizations() {
+    await loadProfile();
+    await acceptInvitations();
+    await loadPendingInvitations();
+    await loadOrganizations();
   }
 
   async function loadProfile() {
@@ -419,6 +443,8 @@
     const rememberedOrganization = state.organizations.find(org => org.id === rememberedId);
     if (rememberedOrganization) {
       await selectOrganization(rememberedOrganization.id);
+    } else if (state.organizations.length === 1) {
+      await selectOrganization(state.organizations[0].id);
     } else {
       state.selectedOrganization = null;
       state.projectSettings = null;
@@ -475,18 +501,54 @@
 
     const organizationButtons = state.organizations.length
       ? state.organizations.map(org => `
-        <button class="ghost" data-org-id="${escapeHtml(org.id)}">
-          ${state.selectedOrganization?.id === org.id ? '✓ ' : ''}${escapeHtml(org.name)}
+        <button class="ghost org-choice-button" data-org-id="${escapeHtml(org.id)}">
+          <strong>${state.selectedOrganization?.id === org.id ? '✓ ' : ''}${escapeHtml(org.name)}</strong>
+          <span>Gå inn i organisasjonen</span>
         </button>
       `).join('')
-      : '<p class="muted">Du har ingen organisasjoner ennå. Be en admin invitere deg, eller opprett en egen organisasjon.</p>';
+      : renderNoOrganizationsMessage();
     if ($('organization-list')) $('organization-list').innerHTML = organizationButtons;
     if ($('organization-choice-list')) $('organization-choice-list').innerHTML = organizationButtons;
+    if ($('organization-invite-help')) $('organization-invite-help').innerHTML = renderOrganizationInviteHelp();
     renderAccessManagement();
 
     document.querySelectorAll('[data-org-id]').forEach(button => {
       button.addEventListener('click', () => selectOrganization(button.dataset.orgId).catch(error => alert(error.message)));
     });
+  }
+
+  function renderOrganizationInviteHelp() {
+    const email = state.user?.email || state.teacherEmail || '';
+    if (state.organizations.length) {
+      return state.organizations.length === 1
+        ? 'Du har én organisasjon. Den åpnes automatisk.'
+        : 'Velg organisasjonen du vil jobbe i.';
+    }
+    if (state.pendingInvitations.length) {
+      return `Vi fant en invitasjon til ${escapeHtml(email)}, men den er ikke aktivert ennå. Trykk “Sjekk invitasjon på nytt”.`;
+    }
+    return `Du er logget inn som <strong>${escapeHtml(email || 'ukjent e-post')}</strong>. Be admin invitere akkurat denne e-posten til organisasjonen.`;
+  }
+
+  function renderNoOrganizationsMessage() {
+    const pending = state.pendingInvitations
+      .map(invite => `<li>${escapeHtml(invite.target_name || 'Ukjent organisasjon')} (${escapeHtml(roleLabel(invite.role))})</li>`)
+      .join('');
+    if (pending) {
+      return `
+        <div class="notice">
+          <strong>Invitasjon funnet, men ikke aktivert</strong>
+          <ul>${pending}</ul>
+          <p>Trykk “Sjekk invitasjon på nytt”. Hvis den fortsatt ikke åpner seg, må admin fjerne og sende invitasjonen på nytt.</p>
+        </div>
+      `;
+    }
+    return `
+      <div class="notice">
+        <strong>Ingen organisasjon funnet ennå</strong>
+        <p>Dette betyr vanligvis at invitasjonen er sendt til en annen e-post enn den du er logget inn med.</p>
+      </div>
+    `;
   }
 
   function toggleOrganizationPicker() {
@@ -3124,6 +3186,7 @@
   $('login-button').addEventListener('click', () => devLogin().catch(error => alert(error.message)));
   $('toggle-organization-picker-button').addEventListener('click', returnToOrganizationChoice);
   $('create-organization-button').addEventListener('click', () => createOrganization().catch(error => alert(error.message)));
+  $('refresh-invitations-button')?.addEventListener('click', () => refreshInvitationsAndOrganizations().catch(error => alert(error.message)));
   $('save-nickname-button').addEventListener('click', () => saveNickname().catch(error => alert(error.message)));
   $('invite-org-admin-button').addEventListener('click', () => inviteOrganizationAdmin().catch(error => alert(error.message)));
   $('invite-rebus-admin-button').addEventListener('click', () => inviteRebusAdmin().catch(error => alert(error.message)));
