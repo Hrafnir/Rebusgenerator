@@ -13,6 +13,7 @@
   let activeStudentTab = 'task';
   let autoMapTaskId = '';
   let locationWatchId = null;
+  let nativeLocationWatchId = null;
   let backgroundLocationWatchId = null;
   let alertAudioContext = null;
   let wakeLockSentinel = null;
@@ -858,6 +859,7 @@
       locationWatchId = null;
     }
     stopBackgroundLocationWatch();
+    stopNativeLocationWatch();
     releaseWakeLock();
     if (targetMarker) targetMarker.setMap(null);
     targetMarker = null;
@@ -870,6 +872,7 @@
     armStudentAlerts().catch(() => {});
     requestNativeNotificationPermission().catch(() => {});
     if (startBackgroundLocationWatch()) return;
+    if (startNativeLocationWatch()) return;
     startBrowserLocationWatch();
   }
 
@@ -903,6 +906,35 @@
     return true;
   }
 
+  function startNativeLocationWatch() {
+    const geolocation = nativePlugin('Geolocation');
+    if (!geolocation || nativeLocationWatchId) return Boolean(nativeLocationWatchId);
+    geolocation.requestPermissions?.().catch(() => {});
+    geolocation.watchPosition({
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 10000
+    }, (position, error) => {
+      if (error) {
+        setLocationStatus(error.message || 'Kunne ikke hente posisjon.');
+        return;
+      }
+      if (!position?.coords) return;
+      handleLocationUpdate({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      });
+    }).then(id => {
+      nativeLocationWatchId = id;
+      setLocationStatus('Mobilposisjon aktiv.');
+    }).catch(error => {
+      setLocationStatus(`Mobilposisjon ikke aktiv: ${error.message || error}`);
+      startBrowserLocationWatch();
+    });
+    return true;
+  }
+
   function startBrowserLocationWatch() {
     if (!navigator.geolocation) {
       setLocationStatus('Denne nettleseren støtter ikke posisjon.');
@@ -927,6 +959,13 @@
     if (!backgroundGeolocation || !backgroundLocationWatchId) return;
     backgroundGeolocation.removeWatcher({ id: backgroundLocationWatchId }).catch(() => {});
     backgroundLocationWatchId = null;
+  }
+
+  function stopNativeLocationWatch() {
+    const geolocation = nativePlugin('Geolocation');
+    if (!geolocation || !nativeLocationWatchId) return;
+    geolocation.clearWatch({ id: nativeLocationWatchId }).catch(() => {});
+    nativeLocationWatchId = null;
   }
 
   function handleLocationUpdate(coords) {

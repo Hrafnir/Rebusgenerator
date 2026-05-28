@@ -9,8 +9,10 @@
     "check": "node --check src/server/index.js && node --check public/admin/app.js && node --check public/student/app.js && node --check scripts/build-student-app.mjs && node --check scripts/copy-android-web.mjs",
     "mobile:build-web": "node scripts/build-student-app.mjs",
     "android:copy-web": "node scripts/copy-android-web.mjs",
-    "android:sync": "npm run mobile:build-web && npm run android:copy-web",
-    "android:open": "npm run android:sync && npx cap open android"
+    "android:sync": "npm run mobile:build-web && npm run android:copy-web && npx cap sync android",
+    "android:open": "npm run android:sync && npx cap open android",
+    "ios:sync": "npm run mobile:build-web && npx cap sync ios",
+    "ios:open": "npm run ios:sync && npx cap open ios"
   },
   "engines": {
     "node": ">=18"
@@ -18,6 +20,9 @@
   "dependencies": {
     "@capacitor/android": "^8.3.4",
     "@capacitor/cli": "^8.3.4",
-    "@capacitor/core": "^8.3.4"
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/ios": "^8.3.4",
+    "@capacitor/local-notifications": "^8.2.0"
   }
 }
