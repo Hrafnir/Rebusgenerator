@@ -1,5 +1,6 @@
 (function () {
   const SELECTED_ORG_STORAGE_KEY = 'selectedOrganizationId';
+  const DEFAULT_GROUP_PASSWORD = '123456';
 
   const state = {
     config: null,
@@ -1040,7 +1041,7 @@
         const groupName = groupDisplayName(student);
         const username = student.username || '';
         const password = groupPassword(student);
-        const suggestedPassword = password || generateAccessCode();
+        const suggestedPassword = password || DEFAULT_GROUP_PASSWORD;
         const messages = messagesByStudent.get(student.id) || [];
         const unreadCount = messages.filter(message => message.sender_type === 'student' && !message.read_by_admin_at).length;
         const stats = groupStats(student);
@@ -1068,7 +1069,7 @@
           </article>
         `;
       }).join('')
-      : '<p class="muted">Ingen grupper ennå.</p>';
+      : '<p class="muted">Ingen grupper ennå. Trykk “Lag 10 standardgrupper” for å komme raskt i gang.</p>';
 
     document.querySelectorAll('[data-generate-password]').forEach(button => {
       button.addEventListener('click', () => {
@@ -2435,34 +2436,77 @@
     if (!state.selectedRebus) return alert('Velg en rebus først.');
     const groupName = $('group-name').value.trim();
     const username = ($('group-username').value.trim() || slugify(groupName)).toLowerCase();
-    const password = $('group-password').value || generateAccessCode();
+    const password = $('group-password').value || DEFAULT_GROUP_PASSWORD;
     if (!groupName) return alert('Skriv inn gruppenavn først.');
     if (!username) return alert('Skriv inn brukernavn først.');
-    if (state.mode === 'supabase') {
-      const { error } = await state.supabase.from('students').insert({
-        rebus_id: state.selectedRebus.id,
-        display_name: groupName,
-        username,
-        password_hash: `plain:${password}`,
-        team_name: groupName
-      });
-      if (error) throw error;
-    } else {
-      await localApi(`/api/admin/rebuses/${state.selectedRebus.id}/students`, {
-        method: 'POST',
-        body: JSON.stringify({
-          displayName: groupName,
-          username,
-          password,
-          teamName: groupName
-        })
-      });
-    }
+    await createGroupRecords([{ groupName, username, password }]);
     $('group-name').value = '';
     $('group-username').value = '';
-    $('group-password').value = generateAccessCode();
+    $('group-password').value = DEFAULT_GROUP_PASSWORD;
     state.lastSuggestedGroupName = '';
     state.lastSuggestedGroupUsername = '';
+    await refreshSelectedRebusGroups();
+  }
+
+  async function createDefaultGroups() {
+    if (!state.selectedRebus) return alert('Velg en rebus først.');
+    const existingNumbers = new Set((state.selectedRebus.students || [])
+      .map(student => groupNumberFromName(groupDisplayName(student)))
+      .filter(Number.isFinite));
+    const groups = [];
+    for (let number = 1; number <= 10; number += 1) {
+      if (existingNumbers.has(number)) continue;
+      const groupName = `Gruppe${number}`;
+      groups.push({ groupName, username: slugify(groupName), password: DEFAULT_GROUP_PASSWORD });
+    }
+    if (!groups.length) return alert('Gruppe1 til Gruppe10 finnes allerede.');
+    await createGroupRecords(groups);
+    await refreshSelectedRebusGroups();
+  }
+
+  async function createNextGroup(useRandomPassword = false) {
+    if (!state.selectedRebus) return alert('Velg en rebus først.');
+    const groupName = nextGroupName();
+    await createGroupRecords([{
+      groupName,
+      username: slugify(groupName),
+      password: useRandomPassword ? generateAccessCode() : DEFAULT_GROUP_PASSWORD
+    }]);
+    await refreshSelectedRebusGroups();
+  }
+
+  async function createGroupRecords(groups) {
+    if (!state.selectedRebus || !groups.length) return;
+    const normalizedGroups = groups.map(group => ({
+      groupName: group.groupName,
+      username: group.username.toLowerCase(),
+      password: group.password || DEFAULT_GROUP_PASSWORD
+    }));
+    if (state.mode === 'supabase') {
+      const { error } = await state.supabase.from('students').insert(normalizedGroups.map(group => ({
+        rebus_id: state.selectedRebus.id,
+        display_name: group.groupName,
+        username: group.username,
+        password_hash: `plain:${group.password}`,
+        team_name: group.groupName
+      })));
+      if (error) throw error;
+    } else {
+      for (const group of normalizedGroups) {
+        await localApi(`/api/admin/rebuses/${state.selectedRebus.id}/students`, {
+          method: 'POST',
+          body: JSON.stringify({
+            displayName: group.groupName,
+            username: group.username,
+            password: group.password,
+            teamName: group.groupName
+          })
+        });
+      }
+    }
+  }
+
+  async function refreshSelectedRebusGroups() {
     await selectRebus(state.selectedRebus.id);
     await loadRebuses();
   }
@@ -3038,13 +3082,15 @@
 
   function nextGroupName() {
     const existingNumbers = (state.selectedRebus?.students || [])
-      .map(student => student.team_name || student.display_name || '')
-      .map(name => String(name).match(/^gruppe\s+(\d+)$/i))
-      .filter(Boolean)
-      .map(match => Number(match[1]))
+      .map(student => groupNumberFromName(student.team_name || student.display_name || student.teamName || student.displayName || ''))
       .filter(Number.isFinite);
     const nextNumber = existingNumbers.length ? Math.max(...existingNumbers) + 1 : (state.selectedRebus?.students?.length || 0) + 1;
-    return `Gruppe ${nextNumber}`;
+    return `Gruppe${nextNumber}`;
+  }
+
+  function groupNumberFromName(name) {
+    const match = String(name || '').match(/^gruppe\s*(\d+)$/i);
+    return match ? Number(match[1]) : NaN;
   }
 
   function switchAdminTab(tab) {
@@ -3062,7 +3108,7 @@
   }
 
   function seedGroupPassword() {
-    if (!$('group-password').value) $('group-password').value = generateAccessCode();
+    if (!$('group-password').value) $('group-password').value = DEFAULT_GROUP_PASSWORD;
   }
 
   function generateAccessCode() {
@@ -3240,6 +3286,9 @@
   $('generate-group-password-button').addEventListener('click', () => {
     $('group-password').value = generateAccessCode();
   });
+  $('create-default-groups-button').addEventListener('click', () => createDefaultGroups().catch(error => alert(error.message)));
+  $('add-next-group-button').addEventListener('click', () => createNextGroup(false).catch(error => alert(error.message)));
+  $('add-next-random-group-button').addEventListener('click', () => createNextGroup(true).catch(error => alert(error.message)));
   $('create-rebus-button').addEventListener('click', () => createRebus().catch(error => alert(error.message)));
   $('save-rebus-button').addEventListener('click', () => updateRebus().catch(error => alert(error.message)));
   $('delete-rebus-button').addEventListener('click', () => deleteRebus().catch(error => alert(error.message)));

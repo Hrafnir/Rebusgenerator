@@ -336,16 +336,25 @@
         </section>
 
         <section id="tab-groups" class="admin-tab stack" hidden>
-          <h2>Ny gruppe</h2>
-          <div class="form-grid">
-            <label><span>Gruppenavn</span><input id="group-name" placeholder="Gruppe 1"></label>
-            <label><span>Brukernavn</span><input id="group-username" placeholder="gruppe-1"></label>
-            <label><span>Kode</span><input id="group-password" placeholder="Genereres automatisk"></label>
-          </div>
+          <h2>Grupper</h2>
+          <p class="muted">Start enkelt med 10 standardgrupper. Standardkode er <code>123456</code>. Du kan generere vanskeligere kode på hver gruppe etterpå.</p>
           <div class="actions">
-            <button id="generate-group-password-button" class="ghost" type="button">Generer ny kode</button>
-            <button id="create-student-button">Lagre gruppe</button>
+            <button id="create-default-groups-button" type="button">Lag 10 standardgrupper</button>
+            <button id="add-next-group-button" class="ghost" type="button">Legg til gruppe</button>
+            <button id="add-next-random-group-button" class="ghost" type="button">Legg til med tilfeldig kode</button>
           </div>
+          <details class="builder-section collapsed-builder-section">
+            <summary>Manuell gruppe</summary>
+            <div class="form-grid">
+              <label><span>Gruppenavn</span><input id="group-name" placeholder="Gruppe11"></label>
+              <label><span>Brukernavn</span><input id="group-username" placeholder="gruppe11"></label>
+              <label><span>Kode</span><input id="group-password" placeholder="123456"></label>
+            </div>
+            <div class="actions">
+              <button id="generate-group-password-button" class="ghost" type="button">Generer vanskeligere kode</button>
+              <button id="create-student-button" type="button">Lagre manuell gruppe</button>
+            </div>
+          </details>
 
           <div class="builder-heading">
             <h2>Grupper</h2>
