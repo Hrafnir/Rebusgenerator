@@ -8,6 +8,8 @@
   let targetMarker = null;
   let taskMarkers = [];
   let currentCoords = null;
+  let followStudentPosition = true;
+  let suppressMapFollowDisable = false;
   let lastGateKey = '';
   let lastUploadReceipt = null;
   let activeStudentTab = 'task';
@@ -861,6 +863,7 @@
     stopBackgroundLocationWatch();
     stopNativeLocationWatch();
     releaseWakeLock();
+    followStudentPosition = true;
     if (targetMarker) targetMarker.setMap(null);
     targetMarker = null;
     $('login-panel').hidden = false;
@@ -1047,6 +1050,14 @@
       mapTypeControl: false,
       streetViewControl: false
     });
+    studentMap.addListener('dragstart', () => {
+      followStudentPosition = false;
+    });
+    studentMap.addListener('zoom_changed', () => {
+      if (suppressMapFollowDisable) return;
+      followStudentPosition = false;
+    });
+    $('follow-position-button')?.addEventListener('click', () => centerOnStudentPosition());
     renderStudentMapState([...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)));
   }
 
@@ -1076,7 +1087,28 @@
       });
     }
     studentMarker.setPosition(position);
-    studentMap.panTo(position);
+    if (followStudentPosition) studentMap.panTo(position);
+  }
+
+  function centerOnStudentPosition() {
+    if (!currentCoords) {
+      setLocationStatus('Venter på GPS-posisjon.');
+      return;
+    }
+    followStudentPosition = true;
+    initStudentMap().then(() => {
+      if (!studentMap || !window.google?.maps) return;
+      const position = { lat: currentCoords.lat, lng: currentCoords.lng };
+      updateStudentPosition(currentCoords.lat, currentCoords.lng);
+      studentMap.panTo(position);
+      if (studentMap.getZoom() < 16) {
+        suppressMapFollowDisable = true;
+        studentMap.setZoom(16);
+        setTimeout(() => {
+          suppressMapFollowDisable = false;
+        }, 0);
+      }
+    }).catch(error => setLocationStatus(`Kunne ikke åpne kart: ${error.message}`));
   }
 
   function renderStudentMapState(tasks) {
@@ -1110,9 +1142,13 @@
     targetMarker.setPosition(location);
     targetMarker.setLabel(String(currentIndex + 1));
     targetMarker.setTitle(task.title);
-    if (!currentCoords) {
+    if (!currentCoords && followStudentPosition) {
       studentMap.panTo(location);
+      suppressMapFollowDisable = true;
       studentMap.setZoom(16);
+      setTimeout(() => {
+        suppressMapFollowDisable = false;
+      }, 0);
     }
   }
 

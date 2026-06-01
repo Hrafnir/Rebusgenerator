@@ -624,6 +624,11 @@ button.compact {
   gap: 12px;
 }
 
+.student-map-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .activity-log {
   display: grid;
   gap: 8px;
