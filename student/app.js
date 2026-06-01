@@ -5,11 +5,13 @@
   let supabase = null;
   let studentMap = null;
   let studentMarker = null;
+  let studentAccuracyCircle = null;
   let targetMarker = null;
   let taskMarkers = [];
   let currentCoords = null;
   let followStudentPosition = true;
   let suppressMapFollowDisable = false;
+  let mapUserInteractionsReady = false;
   let lastGateKey = '';
   let lastUploadReceipt = null;
   let activeStudentTab = 'task';
@@ -1034,12 +1036,14 @@
 
   async function initStudentMap() {
     const mapsKey = currentStudentMapsKey();
-    if (!mapsKey || studentMap || !window.google?.maps) {
-      if (mapsKey && !window.google?.maps) {
-        await loadScript(`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey)}`);
-      } else if (!mapsKey) {
-        return;
-      }
+    if (!mapsKey) return;
+    if (!window.google?.maps) {
+      await loadScript(`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsKey)}`);
+    }
+    if (studentMap) {
+      if (currentCoords) updateStudentPosition(currentCoords.lat, currentCoords.lng);
+      renderStudentMapState([...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)));
+      return;
     }
     const element = $('student-map');
     element.classList.add('is-live');
@@ -1054,10 +1058,14 @@
       followStudentPosition = false;
     });
     studentMap.addListener('zoom_changed', () => {
-      if (suppressMapFollowDisable) return;
+      if (suppressMapFollowDisable || !mapUserInteractionsReady) return;
       followStudentPosition = false;
     });
+    google.maps.event.addListenerOnce(studentMap, 'idle', () => {
+      mapUserInteractionsReady = true;
+    });
     $('follow-position-button')?.addEventListener('click', () => centerOnStudentPosition());
+    if (currentCoords) updateStudentPosition(currentCoords.lat, currentCoords.lng);
     renderStudentMapState([...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)));
   }
 
@@ -1076,18 +1084,53 @@
         map: studentMap,
         position,
         title: 'Min posisjon',
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#1f6feb',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2
-        }
+        icon: studentPositionIcon(),
+        label: {
+          text: 'Du',
+          color: '#ffffff',
+          fontWeight: '800',
+          fontSize: '12px'
+        },
+        zIndex: 999
+      });
+      studentAccuracyCircle = new google.maps.Circle({
+        map: studentMap,
+        center: position,
+        radius: Math.max(12, Number(currentCoords?.accuracy || 0)),
+        clickable: false,
+        strokeColor: '#1565ff',
+        strokeOpacity: 0.45,
+        strokeWeight: 1,
+        fillColor: '#1565ff',
+        fillOpacity: 0.12
       });
     }
+    if (studentAccuracyCircle) {
+      studentAccuracyCircle.setCenter(position);
+      studentAccuracyCircle.setRadius(Math.max(12, Number(currentCoords?.accuracy || 0)));
+      if (!studentAccuracyCircle.getMap()) studentAccuracyCircle.setMap(studentMap);
+    }
+    if (!studentMarker.getMap()) {
+      studentMarker.setMap(studentMap);
+    }
+    studentMarker.setVisible(true);
     studentMarker.setPosition(position);
     if (followStudentPosition) studentMap.panTo(position);
+  }
+
+  function studentPositionIcon() {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="52" height="64" viewBox="0 0 52 64">
+        <path d="M26 62C18 50 6 38 6 24C6 12.95 14.95 4 26 4C37.05 4 46 12.95 46 24C46 38 34 50 26 62Z" fill="#1565ff" stroke="#ffffff" stroke-width="5"/>
+        <circle cx="26" cy="24" r="13" fill="#1565ff" stroke="#ffffff" stroke-width="3"/>
+      </svg>
+    `.trim();
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      scaledSize: new google.maps.Size(42, 52),
+      anchor: new google.maps.Point(21, 50),
+      labelOrigin: new google.maps.Point(21, 22)
+    };
   }
 
   function centerOnStudentPosition() {
