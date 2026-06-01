@@ -1004,6 +1004,7 @@
     $('selected-title').textContent = rebus.title;
     $('selected-description').textContent = rebus.description || 'Ingen beskrivelse.';
     renderSelectedStatusControls(rebus);
+    renderQuickRebusEdit(rebus);
     $('rebus-settings').hidden = false;
     $('edit-rebus-title').value = rebus.title || '';
     $('edit-rebus-description').value = rebus.description || '';
@@ -1027,6 +1028,7 @@
     $('selected-title').textContent = 'Velg en rebus';
     $('selected-description').textContent = 'Når en rebus er valgt kan du legge til oppgaver, grupper og se live status.';
     $('selected-status-controls').innerHTML = '';
+    $('quick-rebus-edit').hidden = true;
     $('rebus-settings').hidden = true;
     $('task-list').innerHTML = '';
     $('group-list').innerHTML = '';
@@ -1133,6 +1135,15 @@
     root.querySelectorAll('[data-set-rebus-status]').forEach(button => {
       button.addEventListener('click', () => setRebusStatus(button.dataset.setRebusStatus).catch(error => alert(error.message)));
     });
+  }
+
+  function renderQuickRebusEdit(rebus) {
+    const panel = $('quick-rebus-edit');
+    if (!panel) return;
+    panel.hidden = false;
+    $('quick-rebus-title').value = rebus.title || '';
+    $('quick-rebus-description').value = rebus.description || '';
+    $('quick-rebus-code').value = rebus.rebus_code || suggestedRebusCode(rebus.title);
   }
 
   function renderGroupDetails(student, suggestedPassword) {
@@ -1933,6 +1944,15 @@
 
     await selectRebus(state.selectedRebus.id);
     await loadRebuses();
+  }
+
+  async function updateRebusFromQuickEdit() {
+    if (!state.selectedRebus) return alert('Velg en rebus først.');
+    $('edit-rebus-title').value = $('quick-rebus-title').value;
+    $('edit-rebus-description').value = $('quick-rebus-description').value;
+    $('edit-rebus-code').value = $('quick-rebus-code').value;
+    await updateRebus();
+    showNotification('Rebusen er lagret', 'Navn, beskrivelse og rebuskode er oppdatert.');
   }
 
   async function setRebusStatus(status) {
@@ -3498,6 +3518,7 @@
   $('add-next-group-button').addEventListener('click', () => createNextGroup(false).catch(error => alert(error.message)));
   $('add-next-random-group-button').addEventListener('click', () => createNextGroup(true).catch(error => alert(error.message)));
   $('create-rebus-button').addEventListener('click', () => createRebus().catch(error => alert(error.message)));
+  $('quick-save-rebus-button')?.addEventListener('click', () => updateRebusFromQuickEdit().catch(error => alert(error.message)));
   $('save-rebus-button').addEventListener('click', () => updateRebus().catch(error => alert(error.message)));
   $('delete-rebus-button').addEventListener('click', () => deleteRebus().catch(error => alert(error.message)));
   $('create-task-button').addEventListener('click', () => createTask().catch(error => alert(error.message)));

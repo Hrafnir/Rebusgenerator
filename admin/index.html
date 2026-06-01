@@ -103,6 +103,14 @@
           <h2 id="selected-title">Velg en rebus</h2>
           <p id="selected-description" class="muted">Når en rebus er valgt kan du legge til oppgaver, grupper og se live status.</p>
           <div id="selected-status-controls" class="rebus-status-controls"></div>
+          <section id="quick-rebus-edit" class="quick-rebus-edit" hidden>
+            <div class="form-grid">
+              <label><span>Navn på rebus</span><input id="quick-rebus-title" placeholder="Navn på rebusen"></label>
+              <label><span>Kort beskrivelse</span><input id="quick-rebus-description" placeholder="Kort beskrivelse"></label>
+              <label><span>Rebuskode</span><input id="quick-rebus-code" autocomplete="off" placeholder="BJORN-NATUR"></label>
+            </div>
+            <button id="quick-save-rebus-button" class="compact" type="button">Lagre endringer</button>
+          </section>
         </div>
 
         <nav class="tab-bar" aria-label="Administrasjon">
