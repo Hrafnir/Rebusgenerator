@@ -67,7 +67,7 @@ function createRebus(teacherId, input) {
       ownerTeacherId: teacherId,
       title: input.title || 'Ny rebus',
       description: input.description || '',
-      status: REBUS_STATUS.DRAFT,
+      status: REBUS_STATUS.PUBLISHED,
       startsAt: input.startsAt || null,
       endsAt: input.endsAt || null,
       createdAt: timestamp,

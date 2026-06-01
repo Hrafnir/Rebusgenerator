@@ -52,7 +52,7 @@
         student_password: $('password').value
       });
       if (error) throw error;
-      if (!data) throw new Error('Feil organisasjon, rebuskode, brukernavn eller kode. Rebusen må også være aktiv.');
+      if (!data) throw new Error('Feil organisasjon, rebuskode, brukernavn eller kode. Rebusen må også være åpen for elever.');
       session = data;
     } else {
       session = await api('/api/student/login', {

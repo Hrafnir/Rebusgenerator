@@ -988,7 +988,7 @@
     $('rebus-list').innerHTML = state.rebuses.length
       ? state.rebuses.map(rebus => `
         <button class="ghost" data-rebus-id="${escapeHtml(rebus.id)}">
-          ${rebus.status === 'published' ? 'Aktiv' : 'Pauset'} · ${escapeHtml(rebus.title)} · ${escapeHtml(rebus.rebus_code || 'ingen kode')} (${rebus.taskCount || 0} oppgaver, ${rebus.studentCount || 0} elever)
+          ${escapeHtml(rebusStatusLabel(rebus.status))} · ${escapeHtml(rebus.title)} · ${escapeHtml(rebus.rebus_code || 'ingen kode')} (${rebus.taskCount || 0} oppgaver, ${rebus.studentCount || 0} elever)
         </button>
       `).join('')
       : '<p class="muted">Ingen rebuser ennå.</p>';
@@ -1003,6 +1003,7 @@
     if (!rebus) return;
     $('selected-title').textContent = rebus.title;
     $('selected-description').textContent = rebus.description || 'Ingen beskrivelse.';
+    renderSelectedStatusControls(rebus);
     $('rebus-settings').hidden = false;
     $('edit-rebus-title').value = rebus.title || '';
     $('edit-rebus-description').value = rebus.description || '';
@@ -1025,6 +1026,7 @@
   function renderEmptyRebus() {
     $('selected-title').textContent = 'Velg en rebus';
     $('selected-description').textContent = 'Når en rebus er valgt kan du legge til oppgaver, grupper og se live status.';
+    $('selected-status-controls').innerHTML = '';
     $('rebus-settings').hidden = true;
     $('task-list').innerHTML = '';
     $('group-list').innerHTML = '';
@@ -1117,6 +1119,20 @@
       button.addEventListener('click', () => adjustGroupScore(button.dataset.adjustScore).catch(error => alert(error.message)));
     });
     bindSubmissionActions($('group-list'));
+  }
+
+  function renderSelectedStatusControls(rebus) {
+    const root = $('selected-status-controls');
+    if (!root) return;
+    const status = rebus.status || 'published';
+    root.innerHTML = `
+      <span class="status-pill ${rebusStatusClass(status)}">${escapeHtml(rebusStatusLabel(status))}</span>
+      <button class="compact ${status === 'published' ? '' : 'ghost'}" type="button" data-set-rebus-status="published" ${status === 'published' ? 'disabled' : ''}>Åpne for elever</button>
+      <button class="compact ${status === 'draft' ? '' : 'ghost'}" type="button" data-set-rebus-status="draft" ${status === 'draft' ? 'disabled' : ''}>Lås for elever</button>
+    `;
+    root.querySelectorAll('[data-set-rebus-status]').forEach(button => {
+      button.addEventListener('click', () => setRebusStatus(button.dataset.setRebusStatus).catch(error => alert(error.message)));
+    });
   }
 
   function renderGroupDetails(student, suggestedPassword) {
@@ -1876,6 +1892,7 @@
         title: $('rebus-title').value.trim() || 'Ny rebus',
         description: $('rebus-description').value.trim(),
         rebus_code: suggestedRebusCode($('rebus-title').value.trim() || 'Ny rebus'),
+        status: 'published',
         created_by: state.user.id
       });
       if (error) throw error;
@@ -1916,6 +1933,16 @@
 
     await selectRebus(state.selectedRebus.id);
     await loadRebuses();
+  }
+
+  async function setRebusStatus(status) {
+    if (!state.selectedRebus) return alert('Velg en rebus først.');
+    if ($('edit-rebus-status')) $('edit-rebus-status').value = status;
+    await updateRebus();
+    showNotification(
+      status === 'published' ? 'Rebusen er åpen' : 'Rebusen er låst',
+      status === 'published' ? 'Elevene kan logge inn igjen.' : 'Elevene kan ikke logge inn før du åpner rebusen.'
+    );
   }
 
   async function deleteRebus() {
@@ -3251,6 +3278,21 @@
       .filter(Number.isFinite);
     const nextNumber = existingNumbers.length ? Math.max(...existingNumbers) + 1 : (state.selectedRebus?.students?.length || 0) + 1;
     return `Gruppe${nextNumber}`;
+  }
+
+  function rebusStatusLabel(status) {
+    const labels = {
+      published: 'Åpen for elever',
+      draft: 'Låst for elever',
+      archived: 'Arkivert'
+    };
+    return labels[status] || 'Åpen for elever';
+  }
+
+  function rebusStatusClass(status) {
+    if (status === 'draft') return 'pending';
+    if (status === 'archived') return 'retry';
+    return 'success';
   }
 
   function groupNumberFromName(name) {

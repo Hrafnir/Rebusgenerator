@@ -18,7 +18,7 @@ function createSeedData() {
         ownerTeacherId: 'teacher_demo',
         title: 'Demo: Fastland-rebus',
         description: 'En enkel demo som viser hvordan en lærer kan bygge poster med kartlokasjoner.',
-        status: REBUS_STATUS.DRAFT,
+        status: REBUS_STATUS.PUBLISHED,
         startsAt: null,
         endsAt: null,
         createdAt,

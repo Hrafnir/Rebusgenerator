@@ -102,6 +102,7 @@
         <div>
           <h2 id="selected-title">Velg en rebus</h2>
           <p id="selected-description" class="muted">Når en rebus er valgt kan du legge til oppgaver, grupper og se live status.</p>
+          <div id="selected-status-controls" class="rebus-status-controls"></div>
         </div>
 
         <nav class="tab-bar" aria-label="Administrasjon">
@@ -176,10 +177,10 @@
               <label><span>Navn</span><input id="edit-rebus-title" placeholder="Navn på rebusen"></label>
               <label><span>Beskrivelse</span><input id="edit-rebus-description" placeholder="Kort beskrivelse"></label>
               <label><span>Rebuskode</span><input id="edit-rebus-code" autocomplete="off" placeholder="BJORN-NATUR"></label>
-              <label><span>Status</span><select id="edit-rebus-status"><option value="draft">Pauset / ikke aktiv</option><option value="published">Aktiv for elever</option><option value="archived">Arkivert</option></select></label>
+              <label><span>Tilgang for elever</span><select id="edit-rebus-status"><option value="published">Åpen for elever</option><option value="draft">Låst for elever</option><option value="archived">Arkivert</option></select></label>
             </div>
             <label class="check-label"><input id="edit-rebus-show-score" type="checkbox" checked> Elevene ser foreløpig poengsum underveis</label>
-            <p class="muted">Elevene må velge organisasjon og skrive rebuskoden før de kan logge inn med gruppebruker og gruppekode.</p>
+            <p class="muted">Nye rebuser er åpne for elever automatisk. Lås rebusen bare hvis du vil stoppe elevinnlogging midlertidig.</p>
             <button id="save-rebus-button" type="button">Lagre rebusinnstillinger</button>
             <div class="compact-settings">
               <h3>Inviter til denne rebusen</h3>
