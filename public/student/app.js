@@ -1559,6 +1559,7 @@
       $('organization-select-label').hidden = false;
       $('rebus-code-label').hidden = false;
       await loadStudentOrganizations();
+      applyLoginParams(params);
     }
     $('login-button').addEventListener('click', () => login().catch(error => alert(error.message)));
     document.addEventListener('visibilitychange', () => {
@@ -1673,6 +1674,13 @@
     select.innerHTML = organizations.length
       ? organizations.map(org => `<option value="${escapeAttributeValue(org.id)}">${escapeHtml(org.name)}</option>`).join('')
       : '<option value="">Ingen organisasjoner med rebuser</option>';
+  }
+
+  function applyLoginParams(params) {
+    const organizationId = params.get('org') || params.get('organizationId') || '';
+    const rebusCode = params.get('rebusCode') || params.get('code') || '';
+    if (organizationId && $('organization-select')) $('organization-select').value = organizationId;
+    if (rebusCode && $('rebus-code')) $('rebus-code').value = rebusCode;
   }
 
   async function loadConfig() {

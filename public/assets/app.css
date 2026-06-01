@@ -893,6 +893,136 @@ button.compact {
   justify-content: flex-end;
 }
 
+.projector-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.2fr);
+  gap: 18px;
+  align-items: start;
+  min-height: 520px;
+}
+
+.projector-view:fullscreen {
+  overflow: auto;
+  padding: 28px;
+  background: var(--bg);
+}
+
+.projector-qr-panel,
+.projector-groups-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.projector-qr-panel {
+  position: sticky;
+  top: 14px;
+  justify-items: center;
+  text-align: center;
+}
+
+.projector-qr-panel h3 {
+  margin: 4px 0;
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+}
+
+.projector-qr-link {
+  display: block;
+  width: min(100%, 420px);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.projector-qr-link img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.projector-url-box {
+  display: grid;
+  gap: 4px;
+  width: min(100%, 520px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  text-align: left;
+}
+
+.projector-url-box span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.projector-url-box strong {
+  overflow-wrap: anywhere;
+}
+
+.projector-group-list {
+  display: grid;
+  gap: 10px;
+}
+
+.projector-group-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.projector-group-preview {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.projector-group-preview strong {
+  font-size: clamp(1.1rem, 2vw, 1.55rem);
+}
+
+.projector-group-preview p {
+  margin: 0;
+  font-size: clamp(0.98rem, 1.7vw, 1.25rem);
+  font-weight: 750;
+}
+
+.projector-group-preview .is-hidden {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.projector-group-toggles {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--surface-alt);
+  font-weight: 750;
+}
+
+.toggle-label input {
+  width: 18px;
+  height: 18px;
+  min-height: auto;
+}
+
 .group-detail-panel {
   grid-column: 1 / -1;
   display: grid;
@@ -1549,11 +1679,21 @@ body.modal-open {
   .message-composer,
   .chat-admin-layout,
   .compact-group-card,
-  .group-detail-grid {
+  .group-detail-grid,
+  .projector-view,
+  .projector-group-card {
     grid-template-columns: 1fr;
   }
 
   .group-card-actions {
+    justify-content: stretch;
+  }
+
+  .projector-qr-panel {
+    position: static;
+  }
+
+  .projector-group-toggles {
     justify-content: stretch;
   }
 

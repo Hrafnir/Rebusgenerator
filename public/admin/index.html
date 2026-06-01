@@ -109,6 +109,7 @@
           <button class="tab-button" type="button" data-admin-tab="access">Tilganger</button>
           <button class="tab-button" type="button" data-admin-tab="tasks">Oppgaver</button>
           <button class="tab-button" type="button" data-admin-tab="groups">Grupper</button>
+          <button class="tab-button" type="button" data-admin-tab="projector">QR og grupper</button>
           <button class="tab-button" type="button" data-admin-tab="submissions">Innleveringer</button>
           <button class="tab-button" type="button" data-admin-tab="chat">Chat</button>
           <button class="tab-button" type="button" data-admin-tab="live">Live status</button>
@@ -364,6 +365,17 @@
             </div>
           </div>
           <div id="group-list" class="list"></div>
+        </section>
+
+        <section id="tab-projector" class="admin-tab stack" hidden>
+          <div class="builder-heading">
+            <div>
+              <h2>QR og grupper</h2>
+              <p class="muted">Bruk denne på skjerm eller projektor når elevene skal inn i rebusen.</p>
+            </div>
+            <button id="projector-fullscreen-button" class="ghost" type="button">Full skjerm</button>
+          </div>
+          <div id="projector-view" class="projector-view"></div>
         </section>
 
         <section id="tab-submissions" class="admin-tab stack" hidden>

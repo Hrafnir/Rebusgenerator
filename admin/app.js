@@ -42,6 +42,7 @@
     seenMessageIds: new Set(),
     adminMessageDrafts: new Map(),
     expandedGroupId: null,
+    projectorVisibility: new Map(),
     access: {
       orgMembers: [],
       orgInvites: [],
@@ -1015,6 +1016,7 @@
     renderChatTab();
     renderChatSidebar();
     renderAccessManagement();
+    renderProjectorView();
     setDefaultGroupFields();
     bindTaskListActions();
   }
@@ -1025,6 +1027,7 @@
     $('rebus-settings').hidden = true;
     $('task-list').innerHTML = '';
     $('group-list').innerHTML = '';
+    $('projector-view').innerHTML = '';
     $('submission-list').innerHTML = '';
     $('chat-panel').innerHTML = '';
     renderChatSidebar();
@@ -1150,6 +1153,119 @@
         </section>
       </section>
     `;
+  }
+
+  function renderProjectorView() {
+    const root = $('projector-view');
+    if (!root) return;
+    const rebus = state.selectedRebus;
+    if (!rebus) {
+      root.innerHTML = '<p class="muted">Velg en rebus først.</p>';
+      return;
+    }
+    const groups = sortedGroups();
+    const loginUrl = studentLoginUrl();
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&margin=18&data=${encodeURIComponent(loginUrl)}`;
+    root.innerHTML = `
+      <section class="projector-qr-panel">
+        <div>
+          <p class="eyebrow">Elevinnlogging</p>
+          <h3>${escapeHtml(rebus.title || 'Rebus')}</h3>
+          <p class="muted">Skann QR-koden. Rebuskode fylles ut automatisk.</p>
+        </div>
+        <a class="projector-qr-link" href="${escapeAttribute(loginUrl)}" target="_blank" rel="noreferrer" aria-label="Åpne elevsiden">
+          <img src="${escapeAttribute(qrUrl)}" alt="QR-kode til elevsiden">
+        </a>
+        <div class="projector-url-box">
+          <span>Elevside</span>
+          <strong>${escapeHtml(readableStudentUrl(loginUrl))}</strong>
+        </div>
+        <div class="actions">
+          <button class="compact" type="button" data-copy-projector-link>Kopier lenke</button>
+          <a class="button-like ghost compact" href="${escapeAttribute(loginUrl)}" target="_blank" rel="noreferrer">Åpne elevside</a>
+        </div>
+      </section>
+      <section class="projector-groups-panel">
+        <div class="builder-heading compact-heading">
+          <div>
+            <h3>Grupper</h3>
+            <p class="muted">${groups.length} grupper. Velg hva som skal synes på skjermen.</p>
+          </div>
+          <div class="actions">
+            <button class="ghost compact" type="button" data-projector-all="names">Vis alle navn</button>
+            <button class="ghost compact" type="button" data-projector-all="codes">Vis alle koder</button>
+            <button class="ghost compact" type="button" data-projector-all="hide-codes">Skjul koder</button>
+          </div>
+        </div>
+        <div class="projector-group-list">
+          ${groups.length ? groups.map(renderProjectorGroupCard).join('') : '<p class="muted">Ingen grupper ennå.</p>'}
+        </div>
+      </section>
+    `;
+    bindProjectorActions();
+  }
+
+  function renderProjectorGroupCard(group) {
+    const visibility = projectorGroupVisibility(group.id);
+    const name = groupDisplayName(group);
+    const username = group.username || '';
+    const password = groupPassword(group) || DEFAULT_GROUP_PASSWORD;
+    return `
+      <article class="projector-group-card">
+        <div class="projector-group-preview">
+          <strong class="${visibility.name ? '' : 'is-hidden'}">${visibility.name ? escapeHtml(name) : 'Skjult gruppenavn'}</strong>
+          <p class="${visibility.code ? '' : 'is-hidden'}">${visibility.code ? `Brukernavn: ${escapeHtml(username || '-')} · Kode: ${escapeHtml(password)}` : 'Kode skjult'}</p>
+        </div>
+        <div class="projector-group-toggles">
+          <label class="toggle-label">
+            <input type="checkbox" data-projector-name="${escapeHtml(group.id)}" ${visibility.name ? 'checked' : ''}>
+            Navn
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" data-projector-code="${escapeHtml(group.id)}" ${visibility.code ? 'checked' : ''}>
+            Kode
+          </label>
+        </div>
+      </article>
+    `;
+  }
+
+  function projectorGroupVisibility(studentId) {
+    if (!state.projectorVisibility.has(studentId)) {
+      state.projectorVisibility.set(studentId, { name: true, code: false });
+    }
+    return state.projectorVisibility.get(studentId);
+  }
+
+  function bindProjectorActions() {
+    document.querySelectorAll('[data-projector-name]').forEach(input => {
+      input.addEventListener('change', () => {
+        projectorGroupVisibility(input.dataset.projectorName).name = input.checked;
+        renderProjectorView();
+      });
+    });
+    document.querySelectorAll('[data-projector-code]').forEach(input => {
+      input.addEventListener('change', () => {
+        projectorGroupVisibility(input.dataset.projectorCode).code = input.checked;
+        renderProjectorView();
+      });
+    });
+    document.querySelectorAll('[data-projector-all]').forEach(button => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.projectorAll;
+        sortedGroups().forEach(group => {
+          const visibility = projectorGroupVisibility(group.id);
+          if (action === 'names') visibility.name = true;
+          if (action === 'codes') visibility.code = true;
+          if (action === 'hide-codes') visibility.code = false;
+        });
+        renderProjectorView();
+      });
+    });
+    document.querySelector('[data-copy-projector-link]')?.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(studentLoginUrl());
+      alert('Lenke kopiert.');
+    });
   }
 
   function groupStats(student) {
@@ -3059,6 +3175,18 @@
     return `${window.location.origin}${basePath}/${cleanPath}`;
   }
 
+  function studentLoginUrl() {
+    const url = new URL(appUrl('student/'));
+    if (state.selectedOrganization?.id) url.searchParams.set('org', state.selectedOrganization.id);
+    if (state.selectedRebus?.rebus_code) url.searchParams.set('rebusCode', state.selectedRebus.rebus_code);
+    return url.toString();
+  }
+
+  function readableStudentUrl(url) {
+    const parsed = new URL(url);
+    return `${parsed.host}${parsed.pathname}${parsed.search}`;
+  }
+
   function syncGroupUsername() {
     const suggested = slugify($('group-name').value);
     const current = $('group-username').value.trim();
@@ -3103,6 +3231,7 @@
     });
     if (tab === 'groups') setDefaultGroupFields();
     if (tab === 'access') renderAccessManagement();
+    if (tab === 'projector') renderProjectorView();
     if (tab === 'submissions') refreshSelectedRebusForSubmissions().catch(error => alert(error.message));
     if (tab === 'chat') renderChatTab();
   }
@@ -3296,6 +3425,10 @@
   $('create-student-button').addEventListener('click', () => createStudent().catch(error => alert(error.message)));
   $('export-groups-button').addEventListener('click', exportGroups);
   $('print-groups-button').addEventListener('click', printGroups);
+  $('projector-fullscreen-button')?.addEventListener('click', () => {
+    const target = $('projector-view');
+    if (target?.requestFullscreen) target.requestFullscreen().catch(error => alert(error.message));
+  });
   $('download-submissions-button').addEventListener('click', () => downloadSubmissionsZip().catch(error => alert(error.message)));
   $('delete-submissions-button').addEventListener('click', () => deleteAllSubmissions().catch(error => alert(error.message)));
   document.querySelectorAll('[data-close-submission-preview]').forEach(button => {
