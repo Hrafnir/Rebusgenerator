@@ -1543,6 +1543,7 @@
     config = await loadConfig();
     mode = config.supabaseUrl && config.supabaseAnonKey ? 'supabase' : 'local';
     const params = new URLSearchParams(window.location.search);
+    const loginParams = readLoginParams(params);
     previewMode = params.has('previewTask');
     if (mode === 'supabase') {
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
@@ -1559,13 +1560,20 @@
       $('organization-select-label').hidden = false;
       $('rebus-code-label').hidden = false;
       await loadStudentOrganizations();
-      applyLoginParams(params);
+      applyLoginParams(loginParams);
     }
     $('login-button').addEventListener('click', () => login().catch(error => alert(error.message)));
     document.addEventListener('visibilitychange', () => {
       if (session && document.visibilityState === 'visible') requestWakeLock().catch(() => {});
     });
-    if (!previewMode) restoreSession().catch(() => {});
+    if (loginParams.hasAny) {
+      localStorage.removeItem('studentSessionToken');
+    }
+    if (!previewMode && loginParams.autoLogin && loginParams.username && loginParams.password) {
+      login().catch(error => alert(error.message));
+    } else if (!previewMode && !loginParams.hasAny) {
+      restoreSession().catch(() => {});
+    }
   }
 
   async function loadPreviewSession(rebusId, taskId) {
@@ -1676,11 +1684,23 @@
       : '<option value="">Ingen organisasjoner med rebuser</option>';
   }
 
+  function readLoginParams(params) {
+    const values = {
+      organizationId: params.get('org') || params.get('organizationId') || '',
+      rebusCode: params.get('rebusCode') || params.get('code') || '',
+      username: params.get('username') || '',
+      password: params.get('password') || '',
+      autoLogin: params.get('autoLogin') === '1'
+    };
+    values.hasAny = Boolean(values.organizationId || values.rebusCode || values.username || values.password || values.autoLogin);
+    return values;
+  }
+
   function applyLoginParams(params) {
-    const organizationId = params.get('org') || params.get('organizationId') || '';
-    const rebusCode = params.get('rebusCode') || params.get('code') || '';
-    if (organizationId && $('organization-select')) $('organization-select').value = organizationId;
-    if (rebusCode && $('rebus-code')) $('rebus-code').value = rebusCode;
+    if (params.organizationId && $('organization-select')) $('organization-select').value = params.organizationId;
+    if (params.rebusCode && $('rebus-code')) $('rebus-code').value = params.rebusCode;
+    if (params.username && $('username')) $('username').value = params.username;
+    if (params.password && $('password')) $('password').value = params.password;
   }
 
   async function loadConfig() {

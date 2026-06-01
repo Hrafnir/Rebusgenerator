@@ -43,6 +43,7 @@
     adminMessageDrafts: new Map(),
     expandedGroupId: null,
     projectorVisibility: new Map(),
+    activeProjectorStudentId: null,
     access: {
       orgMembers: [],
       orgInvites: [],
@@ -1164,24 +1165,29 @@
       return;
     }
     const groups = sortedGroups();
-    const loginUrl = studentLoginUrl();
+    const activeGroup = groups.find(group => group.id === state.activeProjectorStudentId) || groups[0] || null;
+    if (activeGroup && state.activeProjectorStudentId !== activeGroup.id) state.activeProjectorStudentId = activeGroup.id;
+    const loginUrl = studentLoginUrl(activeGroup);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&margin=18&data=${encodeURIComponent(loginUrl)}`;
+    const activeName = activeGroup ? groupDisplayName(activeGroup) : '';
     root.innerHTML = `
       <section class="projector-qr-panel">
         <div>
-          <p class="eyebrow">Elevinnlogging</p>
-          <h3>${escapeHtml(rebus.title || 'Rebus')}</h3>
-          <p class="muted">Skann QR-koden. Rebuskode fylles ut automatisk.</p>
+          <p class="eyebrow">Gruppeinnlogging</p>
+          <h3>${activeGroup ? escapeHtml(activeName) : escapeHtml(rebus.title || 'Rebus')}</h3>
+          <p class="muted">${activeGroup ? 'Skann QR-koden for å logge inn som denne gruppa.' : 'Lag grupper først, så får hver gruppe sin egen QR-kode.'}</p>
         </div>
         <a class="projector-qr-link" href="${escapeAttribute(loginUrl)}" target="_blank" rel="noreferrer" aria-label="Åpne elevsiden">
           <img src="${escapeAttribute(qrUrl)}" alt="QR-kode til elevsiden">
         </a>
         <div class="projector-url-box">
-          <span>Elevside</span>
-          <strong>${escapeHtml(readableStudentUrl(loginUrl))}</strong>
+          <span>${activeGroup ? `Lenke for ${escapeHtml(activeName)}` : 'Elevside'}</span>
+          <strong>${activeGroup ? `Automatisk innlogging for ${escapeHtml(activeName)}` : escapeHtml(readableStudentUrl(loginUrl))}</strong>
         </div>
         <div class="actions">
-          <button class="compact" type="button" data-copy-projector-link>Kopier lenke</button>
+          <button class="compact" type="button" data-copy-projector-link="${activeGroup ? escapeHtml(activeGroup.id) : ''}" ${activeGroup ? '' : 'disabled'}>Kopier lenke</button>
+          <button class="ghost compact" type="button" data-copy-projector-message="${activeGroup ? escapeHtml(activeGroup.id) : ''}" ${activeGroup ? '' : 'disabled'}>Kopier til Teams</button>
+          ${activeGroup ? `<a class="button-like ghost compact" href="${escapeAttribute(groupMailtoUrl(activeGroup, loginUrl))}">E-post</a>` : ''}
           <a class="button-like ghost compact" href="${escapeAttribute(loginUrl)}" target="_blank" rel="noreferrer">Åpne elevside</a>
         </div>
       </section>
@@ -1198,24 +1204,24 @@
           </div>
         </div>
         <div class="projector-group-list">
-          ${groups.length ? groups.map(renderProjectorGroupCard).join('') : '<p class="muted">Ingen grupper ennå.</p>'}
+          ${groups.length ? groups.map(group => renderProjectorGroupCard(group, activeGroup?.id === group.id)).join('') : '<p class="muted">Ingen grupper ennå.</p>'}
         </div>
       </section>
     `;
     bindProjectorActions();
   }
 
-  function renderProjectorGroupCard(group) {
+  function renderProjectorGroupCard(group, active = false) {
     const visibility = projectorGroupVisibility(group.id);
     const name = groupDisplayName(group);
     const username = group.username || '';
     const password = groupPassword(group) || DEFAULT_GROUP_PASSWORD;
     return `
-      <article class="projector-group-card">
-        <div class="projector-group-preview">
+      <article class="projector-group-card ${active ? 'active' : ''}">
+        <button class="projector-group-preview" type="button" data-projector-select="${escapeHtml(group.id)}">
           <strong class="${visibility.name ? '' : 'is-hidden'}">${visibility.name ? escapeHtml(name) : 'Skjult gruppenavn'}</strong>
           <p class="${visibility.code ? '' : 'is-hidden'}">${visibility.code ? `Brukernavn: ${escapeHtml(username || '-')} · Kode: ${escapeHtml(password)}` : 'Kode skjult'}</p>
-        </div>
+        </button>
         <div class="projector-group-toggles">
           <label class="toggle-label">
             <input type="checkbox" data-projector-name="${escapeHtml(group.id)}" ${visibility.name ? 'checked' : ''}>
@@ -1238,6 +1244,12 @@
   }
 
   function bindProjectorActions() {
+    document.querySelectorAll('[data-projector-select]').forEach(button => {
+      button.addEventListener('click', () => {
+        state.activeProjectorStudentId = button.dataset.projectorSelect;
+        renderProjectorView();
+      });
+    });
     document.querySelectorAll('[data-projector-name]').forEach(input => {
       input.addEventListener('change', () => {
         projectorGroupVisibility(input.dataset.projectorName).name = input.checked;
@@ -1262,9 +1274,16 @@
         renderProjectorView();
       });
     });
-    document.querySelector('[data-copy-projector-link]')?.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(studentLoginUrl());
+    document.querySelector('[data-copy-projector-link]')?.addEventListener('click', async event => {
+      const group = sortedGroups().find(item => item.id === event.currentTarget.dataset.copyProjectorLink);
+      await navigator.clipboard.writeText(studentLoginUrl(group));
       alert('Lenke kopiert.');
+    });
+    document.querySelector('[data-copy-projector-message]')?.addEventListener('click', async event => {
+      const group = sortedGroups().find(item => item.id === event.currentTarget.dataset.copyProjectorMessage);
+      if (!group) return;
+      await navigator.clipboard.writeText(groupShareMessage(group, studentLoginUrl(group)));
+      alert('Melding kopiert. Lim den inn i Teams.');
     });
   }
 
@@ -3175,16 +3194,34 @@
     return `${window.location.origin}${basePath}/${cleanPath}`;
   }
 
-  function studentLoginUrl() {
+  function studentLoginUrl(group = null) {
     const url = new URL(appUrl('student/'));
     if (state.selectedOrganization?.id) url.searchParams.set('org', state.selectedOrganization.id);
     if (state.selectedRebus?.rebus_code) url.searchParams.set('rebusCode', state.selectedRebus.rebus_code);
+    if (group) {
+      url.searchParams.set('username', group.username || '');
+      url.searchParams.set('password', groupPassword(group) || DEFAULT_GROUP_PASSWORD);
+      url.searchParams.set('autoLogin', '1');
+    }
     return url.toString();
   }
 
   function readableStudentUrl(url) {
     const parsed = new URL(url);
     return `${parsed.host}${parsed.pathname}${parsed.search}`;
+  }
+
+  function groupShareMessage(group, url) {
+    return [
+      `${groupDisplayName(group)} - rebuslenke`,
+      `Trykk på lenken eller skann QR-koden for å fortsette som samme gruppe:`,
+      url
+    ].join('\n');
+  }
+
+  function groupMailtoUrl(group, url) {
+    const subject = `${groupDisplayName(group)} - rebuslenke`;
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(groupShareMessage(group, url))}`;
   }
 
   function syncGroupUsername() {
