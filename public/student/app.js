@@ -19,6 +19,7 @@
   let locationWatchId = null;
   let nativeLocationWatchId = null;
   let backgroundLocationWatchId = null;
+  let locationTrackingStopped = false;
   let alertAudioContext = null;
   let wakeLockSentinel = null;
   let messagePollId = null;
@@ -68,6 +69,7 @@
       });
     }
     localStorage.setItem('studentSessionToken', session.token);
+    locationTrackingStopped = false;
     markKnownSessionEvents();
     renderSession();
     startLocationSending();
@@ -90,6 +92,7 @@
       if (!response.ok) return;
       session = await response.json();
     }
+    locationTrackingStopped = false;
     markKnownSessionEvents();
     renderSession();
     startLocationSending();
@@ -112,6 +115,7 @@
     }
 
     const sortedTasks = [...(session.tasks || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+    if (!previewMode && isRebusComplete(sortedTasks)) stopLocationTracking('Rebus fullført. Posisjonssporing er stoppet.');
     syncTaskRouteTab(sortedTasks);
     $('task-list').innerHTML = renderCurrentTask(sortedTasks);
     renderStudentMapState(sortedTasks);
@@ -598,6 +602,16 @@
     return Boolean(progress && progress.correct !== false);
   }
 
+  function isRebusComplete(tasks = session?.tasks || []) {
+    if (!tasks.length) return false;
+    const progressByTaskId = new Map((session.progress || []).map(item => [progressTaskId(item), item]));
+    return tasks.every(task => isTaskComplete(progressByTaskId.get(task.id)));
+  }
+
+  function progressTaskId(progress) {
+    return progress?.taskId || progress?.task_id || '';
+  }
+
   function renderRetryDetails(progress) {
     const answer = progress.answer ? ` Siste svar: ${escapeHtml(progress.answer)}.` : '';
     return `<p class="notice">Ikke helt riktig ennå.${answer} Prøv en gang til.</p>`;
@@ -868,6 +882,7 @@
     session = null;
     lastGateKey = '';
     currentCoords = null;
+    locationTrackingStopped = false;
     seenAdminMessageIds.clear();
     seenScoreAdjustmentIds.clear();
     if (messagePollId) {
@@ -889,6 +904,10 @@
   }
 
   function startLocationSending() {
+    if (locationTrackingStopped || isRebusComplete()) {
+      stopLocationTracking('Rebus fullført. Posisjonssporing er stoppet.');
+      return;
+    }
     if (activeStudentTab === 'map') initStudentMap().catch(() => {});
     armStudentAlerts().catch(() => {});
     requestNativeNotificationPermission().catch(() => {});
@@ -898,6 +917,7 @@
   }
 
   function startBackgroundLocationWatch() {
+    if (locationTrackingStopped || isRebusComplete()) return false;
     const backgroundGeolocation = nativePlugin('BackgroundGeolocation');
     if (!backgroundGeolocation || backgroundLocationWatchId) return Boolean(backgroundLocationWatchId);
     backgroundGeolocation.addWatcher({
@@ -928,6 +948,7 @@
   }
 
   function startNativeLocationWatch() {
+    if (locationTrackingStopped || isRebusComplete()) return false;
     const geolocation = nativePlugin('Geolocation');
     if (!geolocation || nativeLocationWatchId) return Boolean(nativeLocationWatchId);
     geolocation.requestPermissions?.().catch(() => {});
@@ -957,6 +978,7 @@
   }
 
   function startBrowserLocationWatch() {
+    if (locationTrackingStopped || isRebusComplete()) return;
     if (!navigator.geolocation) {
       setLocationStatus('Denne nettleseren støtter ikke posisjon.');
       return;
@@ -989,7 +1011,23 @@
     nativeLocationWatchId = null;
   }
 
+  function stopLocationTracking(message = '') {
+    locationTrackingStopped = true;
+    if (locationWatchId !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(locationWatchId);
+      locationWatchId = null;
+    }
+    stopBackgroundLocationWatch();
+    stopNativeLocationWatch();
+    movementTrack = null;
+    if (message) setLocationStatus(message);
+  }
+
   function handleLocationUpdate(coords) {
+    if (locationTrackingStopped || isRebusComplete()) {
+      stopLocationTracking('Rebus fullført. Posisjonssporing er stoppet.');
+      return;
+    }
     currentCoords = coords;
     updateMovementTrack();
     updateStudentPosition(coords.lat, coords.lng);
@@ -1031,6 +1069,10 @@
   }
 
   function sendLocation(coords) {
+    if (locationTrackingStopped || isRebusComplete()) {
+      stopLocationTracking('Rebus fullført. Posisjonssporing er stoppet.');
+      return;
+    }
     if (mode === 'supabase') {
       supabase.rpc('student_record_location', {
         raw_token: session.token,
