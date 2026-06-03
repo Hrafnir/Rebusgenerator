@@ -8,6 +8,7 @@ const {
   updateRebus,
   deleteRebus,
   createTask,
+  deleteTask,
   createStudent,
   updateStudent,
   deleteStudent,
@@ -140,6 +141,15 @@ async function handleApi(req, res, url) {
     const task = createTask(teacher.id, taskMatch[1], await parseJson(req));
     if (!task) return notFound(res), true;
     json(res, 201, { task });
+    return true;
+  }
+
+  const taskItemMatch = url.pathname.match(/^\/api\/admin\/rebuses\/([^/]+)\/tasks\/([^/]+)$/);
+  if (taskItemMatch && req.method === 'DELETE') {
+    if (!teacher) return unauthorized(res), true;
+    const task = deleteTask(teacher.id, taskItemMatch[1], taskItemMatch[2]);
+    if (!task) return notFound(res), true;
+    json(res, 200, { task });
     return true;
   }
 

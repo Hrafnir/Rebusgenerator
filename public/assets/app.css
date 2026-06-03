@@ -638,6 +638,22 @@ button.compact {
   gap: 12px;
 }
 
+.arrived-task-view {
+  display: grid;
+  gap: 12px;
+}
+
+.task-arrival-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+}
+
 .student-map-actions {
   display: flex;
   justify-content: flex-end;

@@ -341,6 +341,24 @@
     const title = taskTitlePrefix(currentIndex, tasks.length);
     const isFindTask = isFindDestinationTask(task);
     const showDistance = shouldShowDistance(task);
+    const waitingForGeofence = !previewMode && locationState.location && !locationState.inside && !isFindTask;
+    if (!waitingForGeofence) {
+      return `
+        <div class="student-topline">
+          <p class="muted">${previewMode ? 'Forhåndsvisning av én oppgave' : `${progressByTaskId.size} av ${tasks.length} oppgaver levert.`}</p>
+          ${previewMode ? '<button class="ghost compact" type="button" onclick="window.close()">Lukk</button>' : '<button class="ghost compact" type="button" data-logout>Logg ut</button>'}
+        </div>
+        ${renderUploadReceipt()}
+        <section class="arrived-task-view">
+          ${renderTask(task, tasks.length, progress)}
+          <div class="task-arrival-tools">
+            <strong>${escapeHtml(locationTitle(task))}</strong>
+            ${locationState.location && showDistance && locationState.distanceText ? `<span class="distance-pill">${locationState.distanceText}</span>` : ''}
+            ${locationState.location ? '<button class="ghost compact map-toggle-button" type="button" data-student-tab="map">Åpne kart</button>' : ''}
+          </div>
+        </section>
+      `;
+    }
     return `
       <div class="student-topline">
         <p class="muted">${previewMode ? 'Forhåndsvisning av én oppgave' : `${progressByTaskId.size} av ${tasks.length} oppgaver levert.`}</p>
@@ -354,9 +372,7 @@
         ${locationState.location && showDistance && locationState.distanceText ? `<p class="distance-pill">${locationState.distanceText}</p>` : ''}
         ${locationState.location ? '<button class="ghost compact map-toggle-button" type="button" data-student-tab="map">Åpne kart</button>' : ''}
         ${locationState.location && isFindTask ? renderFindDestinationNotice(task, locationState) : ''}
-        ${!previewMode && locationState.location && !locationState.inside && !isFindTask ? `
-          <p class="notice">Kartet viser veien til posten. Oppgaven åpnes her når dere er innenfor geofence. ${locationState.distanceText}</p>
-        ` : renderTask(task, tasks.length, progress)}
+        <p class="notice">Kartet viser veien til posten. Oppgaven åpnes her når dere er innenfor geofence. ${locationState.distanceText}</p>
       </section>
     `;
   }

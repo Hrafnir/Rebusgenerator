@@ -188,7 +188,9 @@ function evaluateAnswer(task, answer, optionIds) {
   if (task.type === 'multiple_choice' || task.type === 'multi_select') {
     const correctIds = (task.task_options || []).filter(option => option.is_correct).map(option => option.id).sort();
     const selectedIds = [...optionIds].sort();
-    const correct = JSON.stringify(correctIds) === JSON.stringify(selectedIds);
+    const correct = task.type === 'multiple_choice'
+      ? selectedIds.length === 1 && correctIds.includes(selectedIds[0])
+      : JSON.stringify(correctIds) === JSON.stringify(selectedIds);
     return {
       answerText: selectedIds.join(','),
       correct,

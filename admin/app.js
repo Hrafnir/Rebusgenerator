@@ -1853,6 +1853,7 @@
             <button class="ghost compact" type="button" data-move-task="${escapeHtml(task.id)}" data-direction="down" ${index === orderedTasks.length - 1 ? 'disabled' : ''}>Ned</button>
             <button class="ghost compact" type="button" data-preview-task="${escapeHtml(task.id)}">Se som elev</button>
             <button class="ghost compact" type="button" data-edit-task="${escapeHtml(task.id)}">Rediger</button>
+            <button class="danger compact" type="button" data-delete-task="${escapeHtml(task.id)}">Slett</button>
           </span>
         </div>
         <p>${escapeHtml(task.prompt || task.description || 'Ingen oppgavetekst.')}</p>
@@ -1874,6 +1875,9 @@
     });
     document.querySelectorAll('[data-move-task]').forEach(button => {
       button.addEventListener('click', () => moveTask(button.dataset.moveTask, button.dataset.direction).catch(error => alert(error.message)));
+    });
+    document.querySelectorAll('[data-delete-task]').forEach(button => {
+      button.addEventListener('click', () => deleteTask(button.dataset.deleteTask).catch(error => alert(error.message)));
     });
   }
 
@@ -2170,6 +2174,38 @@
     await createRichTaskChildren(taskId);
   }
 
+  async function deleteTask(taskId) {
+    if (!state.selectedRebus || !taskId) return;
+    const task = state.selectedRebus.tasks.find(item => item.id === taskId);
+    const title = task?.title || 'oppgaven';
+    if (!confirm(`Slette "${title}"? Dette fjerner også svar og innleveringer på denne oppgaven.`)) return;
+
+    if (state.mode === 'supabase') {
+      const cleanupResults = await Promise.all([
+        state.supabase.from('task_options').delete().eq('task_id', taskId),
+        state.supabase.from('task_assets').delete().eq('task_id', taskId),
+        state.supabase.from('task_hints').delete().eq('task_id', taskId),
+        state.supabase.from('progress').delete().eq('task_id', taskId),
+        state.supabase.from('submissions').delete().eq('task_id', taskId),
+        state.supabase.from('student_task_overrides').delete().eq('task_id', taskId)
+      ]);
+      const cleanupError = cleanupResults.find(result => result.error)?.error;
+      if (cleanupError) throw cleanupError;
+      const { error } = await state.supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId)
+        .eq('rebus_id', state.selectedRebus.id);
+      if (error) throw error;
+    } else {
+      await localApi(`/api/admin/rebuses/${state.selectedRebus.id}/tasks/${taskId}`, { method: 'DELETE' });
+    }
+
+    showNotification('Oppgaven er slettet', `"${title}" er fjernet fra rebusen.`);
+    await selectRebus(state.selectedRebus.id);
+    await loadRebuses();
+  }
+
   async function moveTask(taskId, direction) {
     const tasks = [...state.selectedRebus.tasks].sort((a, b) => a.sort_order - b.sort_order);
     const index = tasks.findIndex(task => task.id === taskId);
@@ -2371,12 +2407,6 @@
       });
       element.querySelector('[data-option-correct]').addEventListener('change', event => {
         row.isCorrect = event.target.checked;
-        if ($('task-type').value === 'multiple_choice' && row.isCorrect) {
-          state.optionRows.forEach(item => {
-            if (item.id !== row.id) item.isCorrect = false;
-          });
-          renderOptionRows();
-        }
       });
       element.querySelector('[data-remove-option]').addEventListener('click', () => {
         state.optionRows = state.optionRows.filter(item => item.id !== row.id);

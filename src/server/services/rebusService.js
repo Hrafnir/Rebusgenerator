@@ -137,6 +137,21 @@ function createTask(teacherId, rebusId, input) {
   });
 }
 
+function deleteTask(teacherId, rebusId, taskId) {
+  return updateDatabase(db => {
+    const rebus = db.rebuses.find(item => item.id === rebusId && item.ownerTeacherId === teacherId);
+    if (!rebus) return null;
+    const task = db.tasks.find(item => item.id === taskId && item.rebusId === rebusId);
+    if (!task) return null;
+    db.tasks = db.tasks.filter(item => item.id !== taskId);
+    db.progress = db.progress.filter(item => item.taskId !== taskId);
+    db.submissions = db.submissions.filter(item => item.taskId !== taskId);
+    rebus.updatedAt = nowIso();
+    db.events.push(createEvent('task_deleted', rebus.id, `Oppgave slettet: ${task.title}`, { taskId }));
+    return task;
+  });
+}
+
 function createStudent(teacherId, rebusId, input) {
   return updateDatabase(db => {
     const rebus = db.rebuses.find(item => item.id === rebusId && item.ownerTeacherId === teacherId);
@@ -434,6 +449,7 @@ module.exports = {
   updateRebus,
   deleteRebus,
   createTask,
+  deleteTask,
   createStudent,
   updateStudent,
   deleteStudent,
