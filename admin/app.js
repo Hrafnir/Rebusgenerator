@@ -1328,7 +1328,7 @@
         <section class="print-page">
           <p class="eyebrow">${escapeHtml(title)}</p>
           <h1>${escapeHtml(groupName)}</h1>
-          <img src="${escapeAttribute(qrUrl)}" alt="QR-kode for ${escapeAttributeValue(groupName)}">
+          <img src="${escapeAttribute(qrUrl)}" alt="QR-kode for ${escapeHtml(groupName)}">
           <dl>
             <div><dt>Gruppenavn</dt><dd>${escapeHtml(groupName)}</dd></div>
             <div><dt>Kode</dt><dd>${escapeHtml(password)}</dd></div>
