@@ -1314,6 +1314,67 @@
     });
   }
 
+  function printProjectorGroups() {
+    const groups = sortedGroups();
+    if (!state.selectedRebus) return alert('Velg en rebus først.');
+    if (!groups.length) return alert('Ingen grupper å printe.');
+    const title = state.selectedRebus.title || 'Rebus';
+    const pages = groups.map(group => {
+      const groupName = groupDisplayName(group);
+      const password = groupPassword(group) || DEFAULT_GROUP_PASSWORD;
+      const loginUrl = studentLoginUrl(group);
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&margin=20&data=${encodeURIComponent(loginUrl)}`;
+      return `
+        <section class="print-page">
+          <p class="eyebrow">${escapeHtml(title)}</p>
+          <h1>${escapeHtml(groupName)}</h1>
+          <img src="${escapeAttribute(qrUrl)}" alt="QR-kode for ${escapeAttributeValue(groupName)}">
+          <dl>
+            <div><dt>Gruppenavn</dt><dd>${escapeHtml(groupName)}</dd></div>
+            <div><dt>Kode</dt><dd>${escapeHtml(password)}</dd></div>
+          </dl>
+          <p class="help">Skann QR-koden for å starte eller fortsette som denne gruppa.</p>
+        </section>
+      `;
+    }).join('');
+    const printWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!printWindow) return alert('Nettleseren blokkerte utskriftsvinduet.');
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="no">
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(title)} - QR-koder</title>
+        <style>
+          @page { size: A4 portrait; margin: 14mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #172033; font-family: Arial, sans-serif; }
+          .print-page { break-after: page; page-break-after: always; min-height: 260mm; display: grid; justify-items: center; align-content: center; gap: 16px; text-align: center; }
+          .print-page:last-child { break-after: auto; page-break-after: auto; }
+          .eyebrow { margin: 0; color: #56647a; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+          h1 { margin: 0; font-size: 54px; line-height: 1.05; }
+          img { width: 138mm; height: 138mm; }
+          dl { display: grid; gap: 10px; min-width: 120mm; margin: 8px 0 0; }
+          dl div { display: grid; grid-template-columns: 44mm 1fr; gap: 10px; align-items: baseline; border: 1px solid #cfd8e3; padding: 10px 12px; text-align: left; }
+          dt { color: #56647a; font-size: 16px; font-weight: 700; }
+          dd { margin: 0; font-size: 28px; font-weight: 800; }
+          .help { max-width: 130mm; margin: 4px 0 0; color: #56647a; font-size: 18px; }
+        </style>
+      </head>
+      <body>
+        ${pages}
+        <script>
+          window.addEventListener('load', () => {
+            window.focus();
+            window.print();
+          });
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   function groupStats(student) {
     const progress = sortedProgress(student);
     const adjustments = student.scoreAdjustments || student.group_score_adjustments || [];
@@ -2669,7 +2730,7 @@
     for (let number = 1; number <= 10; number += 1) {
       if (existingNumbers.has(number)) continue;
       const groupName = `Gruppe${number}`;
-      groups.push({ groupName, username: slugify(groupName), password: DEFAULT_GROUP_PASSWORD });
+      groups.push({ groupName, username: slugify(groupName), password: generateAccessCode() });
     }
     if (!groups.length) return alert('Gruppe1 til Gruppe10 finnes allerede.');
     await createGroupRecords(groups);
@@ -2682,7 +2743,7 @@
     await createGroupRecords([{
       groupName,
       username: slugify(groupName),
-      password: useRandomPassword ? generateAccessCode() : DEFAULT_GROUP_PASSWORD
+      password: generateAccessCode()
     }]);
     await refreshSelectedRebusGroups();
   }
@@ -3555,6 +3616,7 @@
   $('create-student-button').addEventListener('click', () => createStudent().catch(error => alert(error.message)));
   $('export-groups-button').addEventListener('click', exportGroups);
   $('print-groups-button').addEventListener('click', printGroups);
+  $('print-projector-groups-button')?.addEventListener('click', printProjectorGroups);
   $('projector-fullscreen-button')?.addEventListener('click', () => {
     const target = $('projector-view');
     if (target?.requestFullscreen) target.requestFullscreen().catch(error => alert(error.message));

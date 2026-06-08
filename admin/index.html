@@ -347,7 +347,7 @@
 
         <section id="tab-groups" class="admin-tab stack" hidden>
           <h2>Grupper</h2>
-          <p class="muted">Start enkelt med 10 standardgrupper. Standardkode er <code>123456</code>. Du kan generere vanskeligere kode på hver gruppe etterpå.</p>
+          <p class="muted">Start enkelt med 10 standardgrupper. Hver gruppe får en egen trygg kode automatisk.</p>
           <div class="actions">
             <button id="create-default-groups-button" type="button">Lag 10 standardgrupper</button>
             <button id="add-next-group-button" class="ghost" type="button">Legg til gruppe</button>
@@ -382,7 +382,10 @@
               <h2>QR og grupper</h2>
               <p class="muted">Bruk denne på skjerm eller projektor når elevene skal inn i rebusen.</p>
             </div>
-            <button id="projector-fullscreen-button" class="ghost" type="button">Full skjerm</button>
+            <div class="actions">
+              <button id="print-projector-groups-button" class="ghost" type="button">Print alle</button>
+              <button id="projector-fullscreen-button" class="ghost" type="button">Full skjerm</button>
+            </div>
           </div>
           <div id="projector-view" class="projector-view"></div>
         </section>
